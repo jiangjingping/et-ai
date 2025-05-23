@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<JsPlugin>
+  <ApiVersion>1.0.0</ApiVersion>
+  <Name>HelloEt</Name>
+  <Dwscription>addon Description</Dwscription>
+  <Functions>
+    <Uri>/functions.json</Uri>
+    <Namespace>HelloEt</Namespace>
+  </Functions>
+</JsPlugin>
