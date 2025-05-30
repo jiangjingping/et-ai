@@ -66,7 +66,7 @@
               </ul>
               <div class="usage-tips">
                 <p><strong>💡 快捷指令：</strong></p>
-                <p>输入框上方提供了一些常用指令按钮，点击即可快速发送！</p>
+                <p>点击下方“快捷指令”按钮尝试！</p>
               </div>
             </div>
           </div>
@@ -80,7 +80,6 @@
                 <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
               </div>
               <div class="message-text" v-html="formatMessage(message.content)"></div>
-              <!-- 修改为遍历 chartOptions 渲染多个图表 -->
               <div v-if="message.type === 'ai' && message.chartOptions && message.chartOptions.length > 0" class="charts-wrapper">
                 <ChartDisplay 
                   v-for="(chartOpt, chartIndex) in message.chartOptions" 
@@ -93,7 +92,6 @@
             </div>
           </div>
 
-          <!-- 加载指示器 (仅在初始化时显示) -->
           <div v-if="isLoading && !hasStreamingMessage" class="message ai loading">
             <div class="message-content">
               <div class="message-header">
@@ -109,30 +107,94 @@
 
         <!-- 输入区域 -->
         <div class="input-area">
-          <div class="quick-prompts-container" v-if="quickPrompts.length > 0">
-            <button 
-              v-for="(prompt, index) in quickPrompts" 
-              :key="index" 
-              @click="handleQuickPromptClick(prompt)" 
-              class="quick-prompt-btn"
-              :disabled="isLoading"
-              :title="prompt">
-              {{ prompt }}
-            </button>
+          <div 
+            class="floating-quick-prompts-panel" 
+            :class="{ 'expanded': isQuickPromptsPanelExpanded }"
+            @mouseenter="onFloatingPromptsMouseEnter"
+            @mouseleave="onFloatingPromptsMouseLeave" 
+            ref="quickPromptsPanelRef" 
+          >
+            <div class="quick-prompts-content-wrapper">
+              <!-- Analysis Prompts -->
+              <div v-if="analysisPrompts.length > 0" class="quick-prompt-category">
+                <h5 class="prompt-category-title">🔍 数据洞察</h5>
+                <div class="quick-prompts-container">
+                  <button 
+                    v-for="(prompt, index) in analysisPrompts" 
+                    :key="`analysis-${index}`" 
+                    @click="handleQuickPromptClick(prompt)" 
+                    class="quick-prompt-btn analysis-btn"
+                    :disabled="isLoading || isLoadingDynamicPrompts"
+                    :title="prompt">
+                    {{ prompt }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Visualization Prompts -->
+              <div v-if="visualizationPrompts.length > 0" class="quick-prompt-category">
+                <h5 class="prompt-category-title">📊 图表生成</h5>
+                <div class="quick-prompts-container">
+                  <button 
+                    v-for="(prompt, index) in visualizationPrompts" 
+                    :key="`viz-${index}`" 
+                    @click="handleQuickPromptClick(prompt)" 
+                    class="quick-prompt-btn viz-btn"
+                    :disabled="isLoading || isLoadingDynamicPrompts"
+                    :title="prompt">
+                    {{ prompt }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dynamic Prompts (only if context attached) -->
+              <div v-if="isTableContextAttached" class="quick-prompt-category">
+                <h5 class="prompt-category-title">💡 智能建议 (基于当前表格)</h5>
+                <div class="quick-prompts-container dynamic-prompts-container">
+                  <button 
+                    v-for="(prompt, index) in dynamicPrompts" 
+                    :key="`dynamic-${index}`" 
+                    @click="handleQuickPromptClick(prompt)" 
+                    class="quick-prompt-btn dynamic-btn"
+                    :disabled="isLoading" 
+                    :title="prompt">
+                    {{ prompt }}
+                  </button>
+                  <span v-if="isLoadingDynamicPrompts && dynamicPrompts.length === 0" class="loading-dynamic-prompts">正在生成建议...</span>
+                  <span v-if="!isLoadingDynamicPrompts && dynamicPrompts.length === 0 && isTableContextAttached" class="no-dynamic-prompts">暂无智能建议，可尝试通用指令。</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="input-container">
+          
+          <div class="input-container"> <!-- Textarea only -->
             <textarea
-              v-model="inputMessage"
-              @keydown="handleKeyDown"
-              placeholder="输入您的问题，按Ctrl+Enter发送..."
-              class="message-input"
-              rows="2"
-              :disabled="isLoading"
-            ></textarea>
-            <div class="input-actions">
+                  ref="messageInputRef"
+                  v-model="inputMessage"
+                  @keydown="handleKeyDown"
+                  @focus="onMessageInputFocus"
+                  placeholder="输入您的问题，按Ctrl+Enter发送..."
+                  class="message-input"
+                  rows="2"
+                  :disabled="isLoading"
+                ></textarea>
+          </div>
+
+          <div class="actions-toolbar"> <!-- New toolbar for buttons -->
+            <div class="actions-toolbar-left">
+              <button
+                class="quick-prompts-trigger-btn"
+                @mouseenter="onFloatingPromptsMouseEnter"
+                @click="toggleQuickPromptsPanelVisibility"
+                :class="{'panel-expanded': isQuickPromptsPanelExpanded}"
+              >
+                快捷指令
+              </button>
               <button @click="toggleTableContext" class="attach-btn" :title="isTableContextAttached ? '清除引用的表格数据' : '引用当前表格数据'">
                 {{ isTableContextAttached ? '清除引用' : '引用表格' }}
               </button>
+            </div>
+            <div class="actions-toolbar-right">
               <button v-if="isLoading" @click="stopProcessing" class="stop-btn" title="停止当前处理">
                 ⏹️ 停止
               </button>
@@ -141,6 +203,7 @@
               </button>
             </div>
           </div>
+
           <div class="input-hint">
             <span v-if="isTableContextAttached" style="color: #27ae60; font-weight: bold;">ℹ️ 当前已引用表格数据。</span>
             <span v-else>💡 提示：您可以与AI助手进行任何对话，或点击上方按钮引用表格数据。</span>
@@ -148,7 +211,6 @@
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -158,113 +220,240 @@ import aiService from './js/aiService.js'
 import utilFunctions from './js/util.js'
 import { renderMarkdown } from './js/markdownRenderer.js'
 import LLMConfigPanel from './LLMConfigPanel.vue'
-import ChartDisplay from './ChartDisplay.vue' // 导入图表组件
+import ChartDisplay from './ChartDisplay.vue' 
 import appConfigManager from './js/appConfigManager.js'
 
 export default {
   name: 'AIChatPanel',
   components: {
     LLMConfigPanel,
-    ChartDisplay // 注册图表组件
+    ChartDisplay 
   },
   setup() {
     const hasApiKey = ref(false)
-    const isExpanded = ref(true)
+    const isExpanded = ref(true) 
     const isLoading = ref(false)
     const inputMessage = ref('')
     const messages = ref([])
     const messagesContainer = ref(null)
     const showConfigPanel = ref(false)
-    // const tableContextMarkdown = ref('') // 不再需要缓存Markdown数据于此
-    const isTableContextAttached = ref(false) // 标记是否激活了表格数据引用功能
+    const isTableContextAttached = ref(false) 
 
-    const quickPrompts = ref([
-      "帮我把这些数据可视化",
+    const isLoadingDynamicPrompts = ref(false);
+    const defaultAnalysisPrompts = Object.freeze([
       "总结一下当前引用的表格",
+      "解释这份数据的主要特点",
       "基于数据分析趋势",
+      "找出数据中的异常值",
+      "数据质量如何？"
+    ]);
+    const defaultVisualizationPrompts = Object.freeze([
+      "帮我把这些数据可视化",
       "用折线图展示数据",
       "用饼图显示各部分占比",
       "创建柱状图比较数据",
-      "解释这份数据的主要特点"
+      "生成散点图查看关联"
     ]);
 
-    const handleQuickPromptClick = (promptText) => {
-      if (isLoading.value) return; // 如果正在加载，不允许发送快捷指令
+    const analysisPrompts = ref([...defaultAnalysisPrompts]);
+    const visualizationPrompts = ref([...defaultVisualizationPrompts]);
+    const dynamicPrompts = ref([]);
+
+    const isQuickPromptsPanelExpanded = ref(false);
+    const autoCollapseTimer = ref(null);
+    const isMouseOverQuickPromptsArea = ref(false); 
+    const messageInputRef = ref(null);
+    const quickPromptsPanelRef = ref(null);
+
+    const onMessageInputFocus = () => {
+      expandQuickPromptsPanel(true); 
+    };
+
+    const extractHeadersFromMarkdown = (markdownTable) => {
+      if (!markdownTable || typeof markdownTable !== 'string') return null;
+      const lines = markdownTable.split('\n');
+      if (lines.length < 1) return null; 
       
-      // 优化点1：如果表格引用未激活，则激活它
+      const headerLine = lines[0].trim();
+      if (!headerLine.startsWith('|') || !headerLine.endsWith('|')) return null;
+
+      const headers = headerLine.slice(1, -1).split('|').map(h => h.trim()).filter(h => h);
+      return headers.length > 0 ? headers : null;
+    };
+
+    const fetchAndSetDynamicQuickPrompts = async () => {
       if (!isTableContextAttached.value) {
-        isTableContextAttached.value = true;
-        addSystemMessage('✅ 表格数据引用已激活，将基于当前表格数据执行快捷指令。');
+        dynamicPrompts.value = []; 
+        return;
+      }
+      isLoadingDynamicPrompts.value = true;
+      dynamicPrompts.value = []; 
+
+      try {
+        const tableMarkdown = utilFunctions.getTableContextDataAsMarkdown();
+        if (!tableMarkdown || tableMarkdown.trim() === '') {
+          addSystemMessage('ℹ️ 未能获取表格数据用于动态推荐快捷指令。');
+          isLoadingDynamicPrompts.value = false;
+          return;
+        }
+
+        const headers = extractHeadersFromMarkdown(tableMarkdown);
+        if (!headers || headers.length === 0) {
+          addSystemMessage('ℹ️ 未能从表格中提取表头信息。');
+          isLoadingDynamicPrompts.value = false;
+          return;
+        }
+        
+        const systemMessageForSuggestions = "你是一个乐于助人的助手，专门为用户推荐针对表格数据的操作指令。请确保指令简洁、面向操作，并且与提供的表头高度相关。";
+        const promptForDynamicSuggestions = `根据以下表格的表头信息: [${headers.join(', ')}]，请为用户推荐3到5个简洁的、可直接用于数据分析或可视化的操作指令。每个指令占一行，直接返回指令文本，不要包含任何序号、列表符号或者额外的解释性文字。`;
+        
+        addSystemMessage('🤖 正在根据当前表格内容生成智能建议...');
+        const suggestionsString = await aiService.callQwenAPI(promptForDynamicSuggestions, systemMessageForSuggestions);
+
+        if (suggestionsString && suggestionsString.trim()) {
+          const suggestedPrompts = suggestionsString.split('\n').map(p => p.trim()).filter(p => p && p.length > 0 && p.length < 100).slice(0, 5);
+          if (suggestedPrompts.length > 0) {
+            dynamicPrompts.value = suggestedPrompts;
+            addSystemMessage('✅ 已更新智能建议。');
+          } else {
+            addSystemMessage('ℹ️ AI未能提供有效的智能建议。');
+          }
+        } else {
+          addSystemMessage('ℹ️ AI未能生成智能建议。');
+        }
+      } catch (error) {
+        console.error("获取动态快捷指令失败:", error);
+        addSystemMessage(`❌ 获取智能建议失败: ${error.message}`);
+      } finally {
+        isLoadingDynamicPrompts.value = false;
+      }
+    };
+
+    const expandQuickPromptsPanel = (isAutoTrigger = false) => {
+      isQuickPromptsPanelExpanded.value = true;
+      clearTimeout(autoCollapseTimer.value);
+      if (isAutoTrigger) {
+        autoCollapseTimer.value = setTimeout(() => {
+          let isHoveringTarget = false;
+          if (quickPromptsPanelRef.value && quickPromptsPanelRef.value.matches(':hover')) {
+            isHoveringTarget = true;
+          }
+          const triggerButton = document.querySelector('.quick-prompts-trigger-btn');
+          if (triggerButton && triggerButton.matches(':hover')) {
+            isHoveringTarget = true;
+          }
+
+          if (!isHoveringTarget && !isMouseOverQuickPromptsArea.value) { 
+            collapseQuickPromptsPanel();
+          }
+        }, 4000); 
+      }
+    };
+
+    const collapseQuickPromptsPanel = () => {
+      clearTimeout(autoCollapseTimer.value);
+      isQuickPromptsPanelExpanded.value = false;
+    };
+
+    const onFloatingPromptsMouseEnter = () => {
+      isMouseOverQuickPromptsArea.value = true; 
+      expandQuickPromptsPanel(false); 
+    };
+
+    const onFloatingPromptsMouseLeave = () => {
+      isMouseOverQuickPromptsArea.value = false;
+      autoCollapseTimer.value = setTimeout(() => {
+         if (!isMouseOverQuickPromptsArea.value) { 
+            collapseQuickPromptsPanel();
+        }
+      }, 300);
+    };
+    
+    const toggleQuickPromptsPanelVisibility = () => {
+        if(isQuickPromptsPanelExpanded.value) {
+            collapseQuickPromptsPanel();
+        } else {
+            expandQuickPromptsPanel(true); 
+        }
+    };
+
+    const handleQuickPromptClick = (promptText) => {
+      if (isLoading.value || isLoadingDynamicPrompts.value) return; 
+      
+      if (!isTableContextAttached.value) {
+        const requiresDataContext = dynamicPrompts.value.includes(promptText) || 
+                                      analysisPrompts.value.includes(promptText) && (promptText.includes("表格") || promptText.includes("数据")) ||
+                                      visualizationPrompts.value.includes(promptText);
+
+        if (requiresDataContext) {
+            addSystemMessage('💡 此快捷指令可能需要引用表格数据。请先点击“引用表格”。');
+        }
       }
       
       inputMessage.value = promptText;
       sendMessage();
+      setTimeout(() => collapseQuickPromptsPanel(), 100); 
     };
 
-    // 计算属性：检查是否有正在流式输出的消息
     const hasStreamingMessage = computed(() => {
       return messages.value.some(message => message.isStreaming)
     })
 
-    // 引用/取消引用表格数据
-    const toggleTableContext = () => {
+    const toggleTableContext = async () => {
       if (isTableContextAttached.value) {
         isTableContextAttached.value = false;
+        dynamicPrompts.value = []; 
         addSystemMessage('ℹ️ 已取消表格数据引用。下次发送将不包含表格数据。');
+        collapseQuickPromptsPanel(); 
       } else {
         isTableContextAttached.value = true;
-        // 提示用户，数据将在发送时获取
-        addSystemMessage('✅ 表格数据引用已激活。下次发送时将获取并包含当前表格数据。');
+        addSystemMessage('✅ 表格数据引用已激活。正在尝试获取表格信息以生成智能建议...');
+        await fetchAndSetDynamicQuickPrompts();
+        expandQuickPromptsPanel(true); 
       }
     }
 
-    // 检查API Key状态
     const checkApiKeyStatus = () => {
       const currentLlm = appConfigManager.getCurrentLlmConfig()
       hasApiKey.value = !!(currentLlm && currentLlm.apiKey)
     }
 
-    // 配置变更处理
     const onConfigChanged = (newConfig) => {
       checkApiKeyStatus()
       showConfigPanel.value = false
       if (newConfig && newConfig.apiKey) {
         addSystemMessage(`✅ 已切换到配置：${newConfig.name}，现在可以开始对话了。`)
+        if(isTableContextAttached.value) {
+          fetchAndSetDynamicQuickPrompts();
+        }
       }
     }
 
-
-
-    // 切换面板展开/收起
     const togglePanel = () => {
       isExpanded.value = !isExpanded.value
-      // 如果在任务窗格中，可以调整窗格宽度
       try {
         if (window.parent && window.parent.Application) {
-          // 这里可以添加调整任务窗格宽度的逻辑
         }
       } catch (error) {
-        // 忽略跨域错误
       }
     }
 
-    // 显示API Key设置对话框
     const showApiKeyDialog = () => {
       const currentLlm = appConfigManager.getCurrentLlmConfig();
       if (!currentLlm) {
         addSystemMessage('⚠️ 当前没有活动的LLM配置。请先通过设置面板选择或创建一个配置。');
-        showConfigPanel.value = true; // Open the config panel
+        showConfigPanel.value = true; 
         return;
       }
 
       const promptMessage = `请输入API Key для配置 "${currentLlm.name}":`;
       const newKey = prompt(promptMessage, currentLlm.apiKey || '');
 
-      if (newKey !== null) { // User might press cancel, newKey will be null
+      if (newKey !== null) { 
         if (newKey.trim()) {
           try {
             appConfigManager.updateLlmConfig(currentLlm.id, { apiKey: newKey.trim() });
-            checkApiKeyStatus(); // Re-check status
+            checkApiKeyStatus(); 
             addSystemMessage(`✅ API Key已为配置 "${currentLlm.name}" 更新。`);
             if(hasApiKey.value) {
                  addSystemMessage('现在可以开始对话了。');
@@ -274,7 +463,6 @@ export default {
             addSystemMessage(`❌ 更新API Key失败: ${error.message}`);
           }
         } else {
-          // User entered an empty string, potentially to clear it
            try {
             appConfigManager.updateLlmConfig(currentLlm.id, { apiKey: '' });
             checkApiKeyStatus();
@@ -287,14 +475,13 @@ export default {
       }
     }
 
-    // 清空对话
     const clearChat = () => {
       if (confirm('确定要清空所有对话记录吗？')) {
-        messages.value = []
+        messages.value = [];
+        expandQuickPromptsPanel(true); 
       }
     }
 
-    // 添加系统消息
     const addSystemMessage = (content) => {
       messages.value.push({
         type: 'system',
@@ -304,23 +491,13 @@ export default {
       scrollToBottom()
     }
 
-    // 智能更新消息内容 - 解决内容覆盖问题
     const updateMessageContent = (messageIndex, newContent) => {
       if (!messages.value[messageIndex]) return;
-
       const message = messages.value[messageIndex];
-
-      // 始终使用最新的完整内容更新，特别是在流式传输期间
-      // 我们假设 newContent 是从 aiService 传递过来的完整累积内容
       message.content = newContent;
-      message.fullContent = newContent; // 确保 fullContent 也同步更新
-
-      // 如果需要区分流式结束后的最终处理和流式过程中的更新，
-      // 可以在调用此函数的地方，或者在此函数内部根据 message.isStreaming 状态来决定是否做其他操作。
-      // 但对于内容更新本身，直接替换是最安全的，以避免重复。
+      message.fullContent = newContent; 
     };
 
-    // 添加用户消息
     const addUserMessage = (content) => {
       messages.value.push({
         type: 'user',
@@ -330,7 +507,6 @@ export default {
       scrollToBottom()
     }
 
-    // 添加AI消息
     const addAIMessage = (content) => {
       messages.value.push({
         type: 'ai',
@@ -340,7 +516,6 @@ export default {
       scrollToBottom()
     }
 
-    // 滚动到底部
     const scrollToBottom = () => {
       nextTick(() => {
         if (messagesContainer.value) {
@@ -349,22 +524,16 @@ export default {
       })
     }
 
-
-
-
-
-    // 发送消息
     const sendMessage = async () => {
-      if (!inputMessage.value.trim() || isLoading.value) return
+      if (!inputMessage.value.trim() || isLoading.value || isLoadingDynamicPrompts.value) return
 
       let userMessageContent = inputMessage.value.trim()
-      addUserMessage(userMessageContent) // 显示原始用户消息
+      addUserMessage(userMessageContent) 
       inputMessage.value = ''
       isLoading.value = true
 
-      // 如果引用了表格数据，则在此时获取并添加到发送给AI的消息内容中
       let messageToSendToAI = userMessageContent;
-      let actualTableDataUsed = false; // 标记本次发送是否实际使用了表格数据
+      let actualTableDataUsed = false; 
 
       if (isTableContextAttached.value) {
         try {
@@ -385,16 +554,15 @@ export default {
         }
       }
       
-      // 检查用户是否意图生成图表
       const chartKeywords = [
         '图表', '可视化', '柱状图', '折线图', '饼图', '趋势', '分布', '占比', '生成图', '画图',
-        '条形图', '散点图', '面积图', '雷达图', '热力图', 'K线图', '箱线图', // 新增图表类型
-        '绘制', '展现', '统计图' // 新增相关动词和描述
+        '条形图', '散点图', '面积图', '雷达图', '热力图', 'K线图', '箱线图', 
+        '绘制', '展现', '统计图' 
       ];
       const isChartRequest = chartKeywords.some(keyword => userMessageContent.toLowerCase().includes(keyword.toLowerCase()));
       let finalSystemPrompt = '你是一个友好、专业的AI助手，可以帮助用户解答各种问题，提供建议和帮助。请用中文回答。';
 
-      if (isChartRequest && actualTableDataUsed) { // 只有在引用了表格数据且用户意图生成图表时才修改Prompt
+      if (isChartRequest && actualTableDataUsed) { 
         finalSystemPrompt = `你是一个数据可视化助手。用户提供了Markdown格式的表格数据和图表生成请求。
 请执行以下操作：
 1. 分析数据和用户要求。
@@ -417,8 +585,6 @@ export default {
 如果无法根据提供的数据或用户请求生成有效的、不含函数的图表配置，请明确说明原因，不要生成不完整的或错误的JSON。`;
       }
 
-
-      // 创建一个AI消息占位符，用于流式更新
       const aiMessageIndex = messages.value.length
       messages.value.push({
         type: 'ai',
@@ -426,7 +592,7 @@ export default {
         time: new Date().toLocaleTimeString(),
         isStreaming: true,
         fullContent: '',
-        chartOption: null // 为图表配置占位
+        chartOption: null 
       })
       scrollToBottom()
 
@@ -434,24 +600,21 @@ export default {
         await new Promise((resolve, reject) => {
           aiService.callQwenAPIStream(
             messageToSendToAI, 
-            finalSystemPrompt, // 使用更新后的系统Prompt
-            // onChunk: 流式更新
+            finalSystemPrompt, 
             (chunk, content) => {
               if (messages.value[aiMessageIndex]) {
                 updateMessageContent(aiMessageIndex, content)
                 scrollToBottom()
               }
             },
-            // onComplete: 完成
             (finalContent) => {
               if (messages.value[aiMessageIndex]) {
                 messages.value[aiMessageIndex].content = finalContent;
                 messages.value[aiMessageIndex].fullContent = finalContent;
                 messages.value[aiMessageIndex].isStreaming = false;
 
-                // 尝试从finalContent中提取图表JSON
-                if (isChartRequest) { // 只在图表请求时尝试解析
-                    const extractedChartOptions = extractJsonFromText(finalContent); // 现在返回数组
+                if (isChartRequest) { 
+                    const extractedChartOptions = extractJsonFromText(finalContent); 
                     if (extractedChartOptions && extractedChartOptions.length > 0) {
                         messages.value[aiMessageIndex].chartOptions = extractedChartOptions;
                         console.log('[AIChatPanel] 图表配置已提取并存入消息对象:', JSON.parse(JSON.stringify(messages.value[aiMessageIndex].chartOptions)));
@@ -463,60 +626,44 @@ export default {
               isLoading.value = false;
               resolve(finalContent);
             },
-            // onError: 错误
             (error) => {
               reject(error)
             }
           )
         })
       } catch (error) {
-        // 检查错误是否是由于用户中止请求造成的
         if (error.name === 'AbortError') {
           console.log('AI请求被用户中止。');
-          // isLoading.value 已经在 stopProcessing 中设置为 false
-          // messages.value[aiMessageIndex] 的状态也已在 stopProcessing 中处理
-          // 这里不需要再额外更新消息内容为错误信息
-          // 确保 isStreaming 最终为 false
           if (messages.value[aiMessageIndex]) {
             messages.value[aiMessageIndex].isStreaming = false;
           }
         } else {
-          // 对于其他类型的错误，正常显示错误信息
           console.error('AI对话失败:', error);
           if (messages.value[aiMessageIndex]) {
             messages.value[aiMessageIndex].content = `❌ 抱歉，处理您的问题时出现错误：${error.message}`;
             messages.value[aiMessageIndex].isStreaming = false;
           }
         }
-        isLoading.value = false; // 确保在任何错误情况下都重置isLoading
+        isLoading.value = false; 
       }
     }
 
-    // 停止当前处理
     const stopProcessing = () => {
-      // 调用aiService中的停止方法
       if (aiService && typeof aiService.stop === 'function') {
         aiService.stop();
       }
-
-      // 停止加载状态
       isLoading.value = false
-
-      // 更新当前流式消息
       const streamingMessageIndex = messages.value.findIndex(msg => msg.isStreaming)
       if (streamingMessageIndex !== -1) {
-        // 确保在修改前消息仍然存在
         if (messages.value[streamingMessageIndex]) {
             messages.value[streamingMessageIndex].content += '\n\n⏹️ **操作已停止**';
             messages.value[streamingMessageIndex].isStreaming = false;
         }
       }
-      // 确保滚动到底部以显示停止消息
       scrollToBottom();
       addSystemMessage('⏹️ 已停止当前AI处理请求。');
     }
 
-    // 处理键盘事件
     const handleKeyDown = (event) => {
       if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault()
@@ -524,24 +671,19 @@ export default {
       }
     }
 
-    // 格式化消息内容
     const formatMessage = (content) => {
       if (!content) return '';
-      // 避免在渲染时重复移除JSON块，如果已在onComplete中处理
-      // const textWithoutJson = content.replace(/```json\s*([\s\S]*?)\s*```/, "").trim();
-      // return renderMarkdown(textWithoutJson || content); // 如果移除后为空，则渲染原始内容
       return renderMarkdown(content);
     }
 
-    // 从文本中提取JSON的辅助函数
     const extractJsonFromText = (text) => {
-        const options = []; // 正确初始化 options 数组
-        if (!text) return options; // 如果文本为空，返回空数组
+        const options = []; 
+        if (!text) return options; 
 
-        const regex = /```json\s*([\s\S]*?)\s*```/g; // 使用全局匹配
+        const regex = /```json\s*([\s\S]*?)\s*```/g; 
         let match;
         while ((match = regex.exec(text)) !== null) {
-            if (match[1]) { // 确保匹配到捕获组
+            if (match[1]) { 
                 try {
                     const parsedOption = JSON.parse(match[1]);
                     console.log('[AIChatPanel] extractJsonFromText: 单个图表JSON解析成功:', JSON.parse(JSON.stringify(parsedOption)));
@@ -549,41 +691,47 @@ export default {
                 } catch (e) {
                     console.error("[AIChatPanel] extractJsonFromText: 解析图表JSON失败:", e, "\n原始JSON字符串:", match[1]);
                     addSystemMessage("⚠️ AI返回的部分图表配置解析失败。");
-                    // 不中断，继续尝试解析其他可能的JSON块
                 }
             }
         }
-        return options; // 返回所有成功解析的option对象数组
+        return options; 
     }
 
     onMounted(() => {
-      checkApiKeyStatus(); // Initial check
-      // The welcome message logic or API key prompt in the template handles initial UI state.
-      // System messages about readiness are better handled after successful config changes or key setup.
+      checkApiKeyStatus(); 
+      expandQuickPromptsPanel(true); 
     })
 
-    // Watch for changes in the current LLM config's API key directly from appConfigManager
-    // This ensures reactivity if the key is changed elsewhere or by LLMConfigPanel.
     watch(() => appConfigManager.getCurrentLlmConfig()?.apiKey, (newApiKey, oldApiKey) => {
         if (newApiKey !== oldApiKey) {
             checkApiKeyStatus();
         }
-    }, { immediate: false }); // immediate: false because onMounted already calls checkApiKeyStatus
+    }, { immediate: false }); 
 
     return {
       hasApiKey,
       isExpanded,
       isLoading,
+      isLoadingDynamicPrompts,
       inputMessage,
       messages,
       messagesContainer,
       hasStreamingMessage,
       showConfigPanel,
-      // tableContextMarkdown, // 不再需要导出
-      isTableContextAttached, // 导出
-      toggleTableContext, // 导出
-      quickPrompts, // 导出快捷指令
-      handleQuickPromptClick, // 导出点击处理函数
+      isTableContextAttached,
+      toggleTableContext,
+      analysisPrompts,
+      visualizationPrompts,
+      dynamicPrompts,
+      isQuickPromptsPanelExpanded, 
+      expandQuickPromptsPanel,     
+      collapseQuickPromptsPanel,   
+      onFloatingPromptsMouseEnter, 
+      onFloatingPromptsMouseLeave, 
+      toggleQuickPromptsPanelVisibility, 
+      messageInputRef, 
+      onMessageInputFocus, 
+      handleQuickPromptClick,
       togglePanel,
       showApiKeyDialog,
       clearChat,
@@ -591,7 +739,8 @@ export default {
       stopProcessing,
       handleKeyDown,
       formatMessage,
-      onConfigChanged
+      onConfigChanged,
+      quickPromptsPanelRef
     }
   }
 }
@@ -608,20 +757,18 @@ export default {
 }
 
 .ai-chart-display {
-  margin-top: 10px; /* 图表与上方文本的间距 */
+  margin-top: 10px;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
 }
 
 .charts-wrapper {
   display: flex;
-  flex-direction: column; /* 多个图表垂直排列 */
-  gap: 10px; /* 图表之间的间距 */
+  flex-direction: column;
+  gap: 10px;
 }
 
 .ai-chart-display-item {
-  /* 可以为单个图表项设置特定样式，如果需要的话 */
-  /* 例如，如果希望它们水平排列且换行，可以在 .charts-wrapper 中用 flex-wrap */
 }
 
 .quick-prompts-container {
@@ -629,8 +776,28 @@ export default {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
-  padding: 0 5px; /* 左右留一些边距 */
-  justify-content: flex-start; /* 从左开始排列 */
+  padding: 0 5px;
+  justify-content: flex-start;
+  min-height: 28px; 
+}
+
+.quick-prompt-category {
+  margin-bottom: 12px;
+}
+
+.prompt-category-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+  padding-left: 5px;
+}
+
+.loading-dynamic-prompts, .no-dynamic-prompts {
+  font-size: 12px;
+  color: #7f8c8d;
+  padding: 6px 10px;
+  font-style: italic;
 }
 
 .quick-prompt-btn {
@@ -638,15 +805,164 @@ export default {
   color: #495057;
   border: 1px solid #ced4da;
   padding: 6px 10px;
-  border-radius: 15px; /* 圆角按钮 */
+  border-radius: 15px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  white-space: nowrap; /* 防止按钮内文字换行，让宽度自适应 */
-  /* overflow: hidden; // 移除，以便内容能撑开按钮 */
-  /* text-overflow: ellipsis; // 移除 */
-  /* max-width: 150px; // 移除最大宽度限制 */
+  white-space: nowrap; 
 }
+
+.analysis-btn {
+}
+.viz-btn {
+}
+.dynamic-btn {
+  background-color: #e8f5e9; 
+  border-color: #a5d6a7;
+}
+.dynamic-btn:hover {
+  background-color: #c8e6c9;
+}
+
+.input-area {
+  position: relative; 
+  border-top: 1px solid #e1e5e9;
+  padding: 15px;
+  background: #f8f9fa;
+}
+
+/* Removed .quick-prompts-trigger-wrapper and .quick-prompts-trigger-btn (old vertical tab) */
+
+.floating-quick-prompts-panel { 
+  position: absolute;
+  bottom: 80px; /* Increased from 70px to create more space above the input-container */
+  left: 0;
+  right: 0; 
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0; 
+  box-shadow: 0px -4px 12px rgba(0,0,0,0.1);
+  z-index: 20; 
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden; 
+  transition: max-height 0.35s ease-out, opacity 0.3s ease-out, padding-top 0.35s ease-out, padding-bottom 0.35s ease-out, visibility 0s linear 0.35s;
+  visibility: hidden;
+  padding-left: 15px; 
+  padding-right: 15px;
+  padding-top: 0; 
+  padding-bottom: 0;
+}
+
+.floating-quick-prompts-panel.expanded {
+  max-height: 75vh; 
+  opacity: 1;
+  visibility: visible;
+  padding-top: 15px; 
+  padding-bottom: 10px;
+  overflow-y: hidden; 
+}
+
+.quick-prompts-content-wrapper {
+}
+
+.input-container { /* Now only for textarea */
+  display: flex;
+}
+
+.message-input {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 14px;
+  resize: none;
+  font-family: inherit;
+}
+.message-input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.actions-toolbar { /* New: For buttons below textarea */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+.actions-toolbar-left {
+  display: flex;
+  gap: 8px;
+}
+.actions-toolbar-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* Style for the new horizontal quick prompts trigger button */
+.quick-prompts-trigger-btn { /* This is now the primary trigger */
+  background-color: #007bff; 
+  color: white;
+  border: none;
+  padding: 8px 12px; 
+  border-radius: 4px; 
+  cursor: pointer;
+  font-size: 14px; 
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+.quick-prompts-trigger-btn.panel-expanded,
+.quick-prompts-trigger-btn:hover {
+  background-color: #0056b3; 
+}
+
+.attach-btn, .send-btn, .stop-btn { /* General styles for action buttons */
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500; /* Added for consistency */
+  transition: background-color 0.2s ease; /* Added for consistency */
+}
+
+.attach-btn {
+  background: #6c757d;
+  color: white;
+}
+.attach-btn:hover {
+  background: #5a6268;
+}
+
+.stop-btn {
+  background: #dc3545;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+.stop-btn:hover {
+  background: #c82333;
+}
+
+.send-btn {
+  background: #28a745; /* Changed to green for primary action */
+  color: white;
+}
+.send-btn:hover {
+  background: #1e7e34;
+}
+.send-btn:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.input-hint {
+  margin-top: 10px; /* Increased margin from toolbar */
+  font-size: 12px;
+  color: #7f8c8d;
+  text-align: center;
+}
+
 
 .quick-prompt-btn:hover {
   background-color: #dee2e6;
@@ -1151,15 +1467,14 @@ export default {
 }
 
 .input-area {
+  position: relative; 
   border-top: 1px solid #e1e5e9;
   padding: 15px;
   background: #f8f9fa;
 }
 
-.input-container {
+.input-container { /* Now only for textarea */
   display: flex;
-  gap: 10px;
-  align-items: flex-end;
 }
 
 .message-input {
@@ -1171,29 +1486,106 @@ export default {
   resize: none;
   font-family: inherit;
 }
-
 .message-input:focus {
   outline: none;
   border-color: #3498db;
 }
 
-.input-actions {
+.actions-toolbar { /* New: For buttons below textarea */
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+.actions-toolbar-left {
+  display: flex;
+  gap: 8px;
+}
+.actions-toolbar-right {
+  display: flex;
+  gap: 8px;
 }
 
-.attach-btn, .send-btn, .stop-btn {
+/* Style for the new horizontal quick prompts trigger button */
+.quick-prompts-trigger-btn { 
+  background-color: #1eaa93; 
+  color: white;
+  border: none;
+  padding: 8px 12px; 
+  border-radius: 4px; 
+  cursor: pointer;
+  font-size: 14px; 
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+.quick-prompts-trigger-btn.panel-expanded,
+.quick-prompts-trigger-btn:hover {
+  background-color: #0d6b34; 
+}
+
+.floating-quick-prompts-panel { 
+  position: absolute;
+  /* Target: Bottom edge of panel should be above the top edge of textarea, with a gap.
+     Textarea is in .input-container.
+     Below textarea is .actions-toolbar (margin-top: 10px, height ~34px).
+     Below actions-toolbar is .input-hint (margin-top: 10px, height ~12px).
+     Total height of elements below textarea: (10+34) + (10+12) = 44 + 22 = 66px.
+     Let's add a 10px gap above textarea.
+     So, panel's bottom should be 66px (for elements below textarea) + 10px (gap) = 76px from the top of textarea.
+     This means its 'bottom' from '.input-area' bottom should be:
+     height_of_actions_toolbar_block (44px) + height_of_input_hint_block (22px) + desired_gap_above_textarea (10px)
+     = 76px.
+     The previous value 70px was close. Let's try 76px.
+     The panel itself expands upwards from this 'bottom' line.
+  */
+  bottom: 150px; 
+  left: 0;
+  right: 0; 
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0; 
+  box-shadow: 0px -4px 12px rgba(0,0,0,0.1);
+  z-index: 20; 
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden; 
+  transition: max-height 0.35s ease-out, opacity 0.3s ease-out, padding-top 0.35s ease-out, padding-bottom 0.35s ease-out, visibility 0s linear 0.35s;
+  visibility: hidden;
+  padding-left: 15px; 
+  padding-right: 15px;
+  padding-top: 0; 
+  padding-bottom: 0;
+}
+
+.floating-quick-prompts-panel.expanded {
+  max-height: 75vh; 
+  opacity: 1;
+  visibility: visible;
+  padding-top: 15px; 
+  padding-bottom: 10px;
+  overflow-y: hidden; 
+}
+
+.quick-prompts-content-wrapper {
+}
+
+.attach-btn, .send-btn, .stop-btn { 
   padding: 8px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500; 
+  transition: background-color 0.2s ease; 
 }
 
 .attach-btn {
   background: #6c757d;
   color: white;
+}
+.attach-btn:hover {
+  background: #5a6268;
 }
 
 .stop-btn {
@@ -1201,7 +1593,6 @@ export default {
   color: white;
   animation: pulse 1.5s infinite;
 }
-
 .stop-btn:hover {
   background: #c82333;
 }
@@ -1219,21 +1610,21 @@ export default {
 }
 
 .send-btn {
-  background: #3498db;
+  background: #28a745; 
   color: white;
 }
-
+.send-btn:hover {
+  background: #1e7e34;
+}
 .send-btn:disabled {
   background: #bdc3c7;
   cursor: not-allowed;
 }
 
 .input-hint {
-  margin-top: 8px;
+  margin-top: 10px; 
   font-size: 12px;
   color: #7f8c8d;
   text-align: center;
 }
-
-
 </style>
