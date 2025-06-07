@@ -1,5 +1,7 @@
 import axios from 'axios'
 import appConfigManager from './appConfigManager.js'
+import { executeDanfoCode } from './dataTool.js';
+
 
 // 默认配置（不包含敏感信息）
 // This DEFAULT_CONFIG is mainly for baseURL and model if no config is somehow found,
@@ -123,8 +125,96 @@ async function callQwenAPI(prompt, systemPrompt = '') {
     }
 }
 
+// 将原始数据转换为Markdown格式的辅助函数
+function formatRawDataToMarkdown(data) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        return '';
+    }
+    const header = data[0].map(cell => String(cell === null || cell === undefined ? '' : cell).replace(/\|/g, '\\|'));
+    const separator = header.map(() => '---');
+    const body = data.slice(1).map(row =>
+        row.map(cell => String(cell === null || cell === undefined ? '' : cell).replace(/\|/g, '\\|'))
+    );
+    let markdownTable = `| ${header.join(' | ')} |\n`;
+    markdownTable += `| ${separator.join(' | ')} |\n`;
+    body.forEach(row => {
+        const fullRow = [];
+        for (let i = 0; i < header.length; i++) {
+            fullRow.push(row[i] !== undefined ? row[i] : '');
+        }
+        markdownTable += `| ${fullRow.join(' | ')} |\n`;
+    });
+    return markdownTable;
+}
+
+
 // 调用LLM API (流式输出)
 // 支持实时流式响应，适用于对话场景
+async function handleNormalPrompt(prompt, rawData, onChunk, onComplete, onError) {
+    // 提取表头用于决策
+    const headers = (rawData && rawData.length > 0) ? rawData[0] : [];
+    const systemPromptForDanfoCheck = `
+        你是一个决策引擎。你的任务是判断用户的问题是否需要使用Danfo.js进行数据分析或处理。
+        Danfo.js是一个用于数据处理和分析的JavaScript库，类似于Python中的Pandas。
+        如果问题涉及对表格数据的计算、转换、聚合、排序、过滤或生成图表所需的数据格式，请回答"YES"。
+        如果问题只是简单的问答、文本生成或与表格数据无关，请回答"NO"。
+        你的回答只能是"YES"或"NO"。
+
+        用户问题: "${prompt}"
+        表格表头: [${headers.join(', ')}]
+    `;
+
+    try {
+        const useDanfoResponse = await callQwenAPI(systemPromptForDanfoCheck, '');
+        console.log('Danfo.js check response:', useDanfoResponse);
+
+        if (useDanfoResponse.trim().toUpperCase().includes('YES')) {
+            console.log('需要使用Danfo.js进行处理');
+            const systemPromptForDanfoCode = `
+                你是一个Danfo.js代码生成器。根据用户的问题和数据，生成一段Danfo.js代码来解决问题。
+                你可以使用 'df' (DataFrame对象) 和 'dfd' (Danfo.js库) 两个变量。
+                代码应该返回一个处理后的DataFrame、Series，或者一个用于生成图表的JSON对象。
+                重要提示：当使用 groupby 后跟聚合函数（如 .mean(), .sum()）时，请明确选择要聚合的数值列。例如，使用 df.groupby('分类列')[['数值列1', '数值列2']].mean() 而不是 df.groupby('分类列').mean()。
+                不要包含任何解释或注释，只返回纯代码。
+
+                用户问题: "${prompt}"
+                数据的前5行: ${JSON.stringify(rawData.slice(0, 5))}
+            `;
+            const danfoCode = await callQwenAPI(systemPromptForDanfoCode, '');
+            console.log('--- GENERATED DANFO.JS CODE START ---');
+            console.log(danfoCode);
+            console.log('--- GENERATED DANFO.JS CODE END ---');
+
+            try {
+                const danfoResult = await executeDanfoCode(danfoCode, rawData);
+                console.log('Danfo.js execution result:', danfoResult);
+
+                const finalPrompt = `
+                    你是一个数据分析师。你已经使用Danfo.js对数据进行了预处理。
+                    这是用户的原始问题: "${prompt}"
+                    这是Danfo.js的处理结果: ${JSON.stringify(danfoResult)}
+                    请根据这些信息，生成最终的、面向用户的自然语言回答。如果结果适合可视化，请提供ECharts的配置。
+                `;
+                await callQwenAPIStream(finalPrompt, '', onChunk, onComplete, onError);
+
+            } catch (danfoError) {
+                console.error('Danfo.js处理失败，回退到常规流程:', danfoError);
+                const fallbackPrompt = `请参考以下表格数据：\n${formatRawDataToMarkdown(rawData)}\n\n针对以上数据，我的问题是：\n${prompt}`;
+                await callQwenAPIStream(fallbackPrompt, '你是一个数据分析助手。', onChunk, onComplete, onError);
+            }
+        } else {
+            console.log('不需要使用Danfo.js，进入常规流程');
+            const fallbackPrompt = `请参考以下表格数据：\n${formatRawDataToMarkdown(rawData)}\n\n针对以上数据，我的问题是：\n${prompt}`;
+            await callQwenAPIStream(fallbackPrompt, '你是一个数据分析助手。', onChunk, onComplete, onError);
+        }
+    } catch (error) {
+        console.error('处理请求时发生错误:', error);
+        if (onError) {
+            onError(error);
+        }
+    }
+}
+
 async function callQwenAPIStream(prompt, systemPrompt = '', onChunk = null, onComplete = null, onError = null) {
     const llmConfig = getCurrentLLMConfigInternal();
 
@@ -267,7 +357,7 @@ async function callQwenAPIStream(prompt, systemPrompt = '', onChunk = null, onCo
 }
 
 export default {
-    // getCurrentLLMConfig is internal, no need to export if not used elsewhere
+    handleNormalPrompt,
     callQwenAPI,
     callQwenAPIStream,
     stop
