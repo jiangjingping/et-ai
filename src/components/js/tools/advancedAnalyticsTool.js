@@ -165,7 +165,6 @@ export class AdvancedAnalyticsTool extends BaseTool {
                     console.log('⚠️ [DEBUG] selectDtypes 不可用，手动检测数值列...');
                     numericColumns = df.columns.filter(col => {
                         try {
-                            const colData = df[col];
                             // 检查列的数据类型
                             const dtype = df.dtypes[col];
                             return dtype === 'float32' || dtype === 'int32' || dtype === 'number';
@@ -277,9 +276,8 @@ export class AdvancedAnalyticsTool extends BaseTool {
      * 构建分析提示
      * @param {string} userInput - 用户输入
      * @param {Object} dataAnalysis - 数据分析结果
-     * @param {Object} context - 上下文
      */
-    buildAnalysisPrompt(userInput, dataAnalysis, context) {
+    buildAnalysisPrompt(userInput, dataAnalysis) {
         let prompt = `用户分析需求：${userInput}\n\n`;
         
         prompt += `数据概览：
@@ -370,22 +368,29 @@ ${JSON.stringify(dataAnalysis.correlations, null, 2)}
             console.log('🔍 [DEBUG] AdvancedAnalyticsTool.extractPlotlyConfig 开始');
             console.log('📝 [DEBUG] 响应内容长度:', response.length);
 
+            let jsonString = null;
+
             // 查找JSON代码块
             const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-            if (jsonMatch) {
+            if (jsonMatch && jsonMatch[1]) {
                 console.log('✅ [DEBUG] 找到JSON代码块');
-                console.log('🔍 [DEBUG] JSON内容:', jsonMatch[1]);
-                const config = JSON.parse(jsonMatch[1]);
-                console.log('✅ [DEBUG] Plotly配置解析成功:', config);
-                return config;
+                jsonString = jsonMatch[1];
+            } else {
+                // 如果没找到代码块，尝试查找普通JSON对象
+                const objectMatch = response.match(/\{[\s\S]*"data"[\s\S]*\}/);
+                if (objectMatch && objectMatch[0]) {
+                    console.log('✅ [DEBUG] 找到普通JSON对象');
+                    jsonString = objectMatch[0];
+                }
             }
 
-            // 如果没找到代码块，尝试查找普通JSON对象
-            const objectMatch = response.match(/\{[\s\S]*"data"[\s\S]*\}/);
-            if (objectMatch) {
-                console.log('✅ [DEBUG] 找到JSON对象');
-                console.log('🔍 [DEBUG] JSON内容:', objectMatch[0]);
-                const config = JSON.parse(objectMatch[0]);
+            if (jsonString) {
+                console.log('🔍 [DEBUG] 原始JSON内容:', jsonString);
+                // 移除JSON字符串中的注释，以增加解析的健壮性
+                const cleanedJsonString = jsonString.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+                console.log('✨ [DEBUG] 清理后的JSON内容:', cleanedJsonString);
+                
+                const config = JSON.parse(cleanedJsonString);
                 console.log('✅ [DEBUG] Plotly配置解析成功:', config);
                 return config;
             }

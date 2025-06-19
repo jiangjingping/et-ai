@@ -95,6 +95,9 @@ export default {
         loading.value = true
         error.value = null
 
+        // 等待DOM更新确保容器存在
+        await nextTick();
+
         console.log('🔧 [DEBUG] AdvancedChartDisplay.initChart 开始')
         console.log('📊 [DEBUG] Plotly配置:', props.plotlyConfig)
 
@@ -107,30 +110,18 @@ export default {
         const PlotlyLib = await loadPlotly()
         console.log('✅ [DEBUG] Plotly.js 加载成功')
 
-        // 等待DOM更新
-        await nextTick()
-
-        // 多次尝试获取容器，因为可能需要等待DOM渲染
-        let attempts = 0
-        const maxAttempts = 10
-
-        while (!plotlyContainer.value && attempts < maxAttempts) {
-          console.log(`🔄 [DEBUG] 等待容器准备... (尝试 ${attempts + 1}/${maxAttempts})`)
-          await new Promise(resolve => setTimeout(resolve, 100))
-          await nextTick()
-          attempts++
-        }
-
         if (!plotlyContainer.value) {
-          console.error('❌ [DEBUG] 容器元素仍然不存在，容器ID:', containerId.value)
-          throw new Error('Chart container not found after multiple attempts')
+          throw new Error('Chart container is not available in the DOM.');
         }
-
+        
         console.log('✅ [DEBUG] 容器元素找到:', plotlyContainer.value)
 
-        const data = props.plotlyConfig.data || []
+        // 将Proxy对象转换为纯JS对象，增加第三方库兼容性
+        const plotlyConfig = JSON.parse(JSON.stringify(props.plotlyConfig));
+
+        const data = plotlyConfig.data || []
         const layout = {
-          ...props.plotlyConfig.layout,
+          ...plotlyConfig.layout,
           responsive: true,
           autosize: true
         }
@@ -138,7 +129,7 @@ export default {
           responsive: true,
           displayModeBar: true,
           modeBarButtonsToRemove: ['pan2d', 'lasso2d'],
-          ...props.plotlyConfig.config
+          ...plotlyConfig.config
         }
 
         console.log('📊 [DEBUG] 开始创建 Plotly 图表...')
@@ -214,9 +205,13 @@ export default {
     const updateChart = async () => {
       if (!plotlyInstance || !props.plotlyConfig || !Plotly) return
       try {
-        const data = props.plotlyConfig.data || []
+        // 等待DOM更新
+        await nextTick();
+        // 将Proxy对象转换为纯JS对象
+        const plotlyConfig = JSON.parse(JSON.stringify(props.plotlyConfig));
+        const data = plotlyConfig.data || []
         const layout = {
-          ...props.plotlyConfig.layout,
+          ...plotlyConfig.layout,
           responsive: true,
           autosize: true
         }
@@ -237,28 +232,15 @@ export default {
       }
     }
 
-    // 防止重复初始化的标志
-    let isInitializing = false
-
     // 监听配置变化
     watch(() => props.plotlyConfig, (newConfig) => {
       console.log('👀 [DEBUG] Plotly配置变化:', newConfig)
-      if (newConfig && newConfig.data && !isInitializing) {
-        if (plotlyInstance) {
+      // 仅在配置实际变化时更新图表
+      if (newConfig && newConfig.data && plotlyInstance) {
           console.log('🔄 [DEBUG] 更新现有图表')
           updateChart()
-        } else {
-          console.log('🆕 [DEBUG] 初始化新图表')
-          isInitializing = true
-          // 延迟一点时间确保DOM已经更新
-          setTimeout(() => {
-            initChart().finally(() => {
-              isInitializing = false
-            })
-          }, 100)
-        }
       }
-    }, { deep: true, immediate: true })
+    }, { deep: true })
 
     // 监听高度变化
     watch(() => props.height, (newHeight) => {
@@ -270,15 +252,15 @@ export default {
 
     onMounted(() => {
       console.log('🔧 [DEBUG] AdvancedChartDisplay 组件挂载')
-      // 如果配置已经存在，初始化图表
-      if (props.plotlyConfig && props.plotlyConfig.data && !isInitializing) {
-        isInitializing = true
-        // 延迟一点时间确保DOM已经渲染
-        setTimeout(() => {
-          initChart().finally(() => {
-            isInitializing = false
-          })
-        }, 200)
+      // 在DOM挂载后，如果配置有效，则初始化图表
+      if (props.plotlyConfig && props.plotlyConfig.data) {
+        // 使用 nextTick 确保即使在 onMounted 中，DOM 也已完全可用
+        nextTick(() => {
+            initChart();
+        });
+      } else {
+        // 如果初始没有有效配置，则将加载状态设置为false
+        loading.value = false;
       }
     })
 
