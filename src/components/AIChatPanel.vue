@@ -39,8 +39,10 @@
           :is-loading="isLoading"
           :is-loading-dynamic-prompts="isLoadingDynamicPrompts"
           :is-table-context-attached="isTableContextAttached"
-          :analysis-prompts="analysisPrompts"
-          :visualization-prompts="visualizationPrompts"
+          :general-q-a="generalQA"
+          :table-q-a="tableQA"
+          :simple-chart="simpleChart"
+          :advanced-analytics="advancedAnalytics"
           :dynamic-prompts="dynamicPrompts"
           @send-message="sendMessage"
           @stop-processing="stopProcessing"
@@ -59,7 +61,7 @@ import ChatHeader from './chat/ChatHeader.vue'
 import ChatInput from './chat/ChatInput.vue'
 import ChatMessageList from './chat/ChatMessageList.vue'
 import appConfigManager from './js/appConfigManager.js'
-import { useChat } from './composables/useChat.js'
+import { useAgentChat } from './composables/useAgentChat.js'
 import { useQuickPrompts } from './composables/useQuickPrompts.js'
 
 export default {
@@ -77,20 +79,23 @@ export default {
     const showConfigPanel = ref(false)
     const isTableContextAttached = ref(false) 
 
-    const { 
-      isLoading, 
-      messages, 
-      hasStreamingMessage, 
-      addSystemMessage, 
-      sendMessage, 
-      stopProcessing, 
-      clearChat 
-    } = useChat(inputMessage, isTableContextAttached);
+    const {
+      isLoading,
+      messages,
+      hasStreamingMessage,
+      addSystemMessage,
+      sendMessage,
+      stopProcessing,
+      clearChat,
+      isAgentInitialized
+    } = useAgentChat(inputMessage, isTableContextAttached);
 
     const {
       isLoadingDynamicPrompts,
-      analysisPrompts,
-      visualizationPrompts,
+      generalQA,
+      tableQA,
+      simpleChart,
+      advancedAnalytics,
       dynamicPrompts,
       handleQuickPromptClick,
       toggleTableContext,
@@ -175,8 +180,10 @@ export default {
       showConfigPanel,
       isTableContextAttached,
       toggleTableContext,
-      analysisPrompts,
-      visualizationPrompts,
+      generalQA,
+      tableQA,
+      simpleChart,
+      advancedAnalytics,
       dynamicPrompts,
       handleQuickPromptClick,
       togglePanel,

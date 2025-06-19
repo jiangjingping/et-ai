@@ -549,6 +549,123 @@ function GetUrlPath() {
     return '/#'
   }
 
+// 解析 Markdown 表格为数组数据
+function parseMarkdownToTableData(markdownTable) {
+    try {
+        if (!markdownTable || typeof markdownTable !== 'string') {
+            return null;
+        }
+
+        const lines = markdownTable.trim().split('\n');
+        if (lines.length < 2) {
+            return null;
+        }
+
+        const tableData = [];
+        let headerProcessed = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+
+            // 跳过空行
+            if (!line) continue;
+
+            // 跳过分隔符行（包含 --- 的行）
+            if (line.includes('---')) continue;
+
+            // 处理表格行
+            if (line.startsWith('|') && line.endsWith('|')) {
+                const cells = line
+                    .slice(1, -1) // 移除首尾的 |
+                    .split('|')
+                    .map(cell => cell.trim());
+
+                if (cells.length > 0) {
+                    // 如果还没有处理过表头，这一行就是表头
+                    if (!headerProcessed) {
+                        // 将表头作为对象的键名，创建对象数组格式
+                        headerProcessed = true;
+                        continue; // 跳过表头行，我们将用它来构建对象
+                    }
+
+                    tableData.push(cells);
+                }
+            }
+        }
+
+        // 如果没有找到有效的数据行，尝试重新解析
+        if (tableData.length === 0) {
+            // 重新解析，这次包含表头
+            const allRows = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+
+                if (!line || line.includes('---')) continue;
+
+                if (line.startsWith('|') && line.endsWith('|')) {
+                    const cells = line
+                        .slice(1, -1)
+                        .split('|')
+                        .map(cell => cell.trim());
+
+                    if (cells.length > 0) {
+                        allRows.push(cells);
+                    }
+                }
+            }
+
+            if (allRows.length > 0) {
+                // 第一行作为表头，后续行作为数据
+                const headers = allRows[0];
+                const dataRows = allRows.slice(1);
+
+                // 转换为对象数组格式
+                return dataRows.map(row => {
+                    const obj = {};
+                    headers.forEach((header, index) => {
+                        obj[header] = row[index] || '';
+                    });
+                    return obj;
+                });
+            }
+        } else {
+            // 如果有数据行，需要获取表头
+            const headerLine = lines.find(line =>
+                line.trim().startsWith('|') &&
+                line.trim().endsWith('|') &&
+                !line.includes('---')
+            );
+
+            if (headerLine) {
+                const headers = headerLine
+                    .trim()
+                    .slice(1, -1)
+                    .split('|')
+                    .map(cell => cell.trim());
+
+                // 转换为对象数组格式
+                return tableData.map(row => {
+                    const obj = {};
+                    headers.forEach((header, index) => {
+                        obj[header] = row[index] || '';
+                    });
+                    return obj;
+                });
+            }
+        }
+
+        return tableData.length > 0 ? tableData : null;
+    } catch (error) {
+        console.error('解析 Markdown 表格失败:', error);
+        return null;
+    }
+}
+
+// 格式化表格数据为 Markdown（重命名原有函数以保持兼容性）
+function formatTableDataAsMarkdown(data) {
+    return formatTableDataForAI(data);
+}
+
 export default{
     WPS_Enum,
     GetUrlPath,
@@ -558,7 +675,9 @@ export default{
     setTableDataRowByRow,
     setTableDataCellByCell,
     formatTableDataForAI, // 已修改为Markdown格式
+    formatTableDataAsMarkdown, // 新增函数别名
     getTableContextDataAsMarkdown, // 新增函数
+    parseMarkdownToTableData, // 新增函数
     getCellValue,
     columnLetterToNumber,
     getTableDataDebug

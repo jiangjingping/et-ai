@@ -8,15 +8,15 @@
       ref="quickPromptsPanelRef" 
     >
       <div class="quick-prompts-content-wrapper">
-        <!-- Analysis Prompts -->
-        <div v-if="analysisPrompts.length > 0" class="quick-prompt-category">
-          <h5 class="prompt-category-title">🔍 数据洞察</h5>
+        <!-- 🤖 通用问答 -->
+        <div v-if="generalQA.length > 0" class="quick-prompt-category">
+          <h5 class="prompt-category-title">🤖 通用问答</h5>
           <div class="quick-prompts-container">
-            <button 
-              v-for="(prompt, index) in analysisPrompts" 
-              :key="`analysis-${index}`" 
-              @click="handleQuickPromptClick(prompt)" 
-              class="quick-prompt-btn analysis-btn"
+            <button
+              v-for="(prompt, index) in generalQA"
+              :key="`general-${index}`"
+              @click="handleQuickPromptClick(prompt)"
+              class="quick-prompt-btn general-btn"
               :disabled="isLoading || isLoadingDynamicPrompts"
               :title="prompt">
               {{ prompt }}
@@ -24,15 +24,47 @@
           </div>
         </div>
 
-        <!-- Visualization Prompts -->
-        <div v-if="visualizationPrompts.length > 0" class="quick-prompt-category">
-          <h5 class="prompt-category-title">📊 图表生成</h5>
+        <!-- 💬 表格问答 -->
+        <div v-if="tableQA.length > 0" class="quick-prompt-category">
+          <h5 class="prompt-category-title">💬 表格问答</h5>
           <div class="quick-prompts-container">
-            <button 
-              v-for="(prompt, index) in visualizationPrompts" 
-              :key="`viz-${index}`" 
-              @click="handleQuickPromptClick(prompt)" 
-              class="quick-prompt-btn viz-btn"
+            <button
+              v-for="(prompt, index) in tableQA"
+              :key="`table-${index}`"
+              @click="handleQuickPromptClick(prompt)"
+              class="quick-prompt-btn table-btn"
+              :disabled="isLoading || isLoadingDynamicPrompts"
+              :title="prompt">
+              {{ prompt }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 📊 简易图表 -->
+        <div v-if="simpleChart.length > 0" class="quick-prompt-category">
+          <h5 class="prompt-category-title">📊 简易图表</h5>
+          <div class="quick-prompts-container">
+            <button
+              v-for="(prompt, index) in simpleChart"
+              :key="`chart-${index}`"
+              @click="handleQuickPromptClick(prompt)"
+              class="quick-prompt-btn chart-btn"
+              :disabled="isLoading || isLoadingDynamicPrompts"
+              :title="prompt">
+              {{ prompt }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 🔬 高级分析 -->
+        <div v-if="advancedAnalytics.length > 0" class="quick-prompt-category">
+          <h5 class="prompt-category-title">🔬 高级分析</h5>
+          <div class="quick-prompts-container">
+            <button
+              v-for="(prompt, index) in advancedAnalytics"
+              :key="`advanced-${index}`"
+              @click="handleQuickPromptClick(prompt)"
+              class="quick-prompt-btn advanced-btn"
               :disabled="isLoading || isLoadingDynamicPrompts"
               :title="prompt">
               {{ prompt }}
@@ -118,11 +150,19 @@ export default {
     isLoading: Boolean,
     isLoadingDynamicPrompts: Boolean,
     isTableContextAttached: Boolean,
-    analysisPrompts: {
+    generalQA: {
       type: Array,
       default: () => [],
     },
-    visualizationPrompts: {
+    tableQA: {
+      type: Array,
+      default: () => [],
+    },
+    simpleChart: {
+      type: Array,
+      default: () => [],
+    },
+    advancedAnalytics: {
       type: Array,
       default: () => [],
     },
@@ -280,9 +320,48 @@ export default {
   white-space: nowrap; 
 }
 
-.analysis-btn {
+.general-btn {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+  border: none;
 }
-.viz-btn {
+
+.general-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3d8bfe 0%, #00d4fe 100%);
+  transform: translateY(-1px);
+}
+
+.table-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.table-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-1px);
+}
+
+.chart-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+}
+
+.chart-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ee82e9 0%, #f3455a 100%);
+  transform: translateY(-1px);
+}
+
+.advanced-btn {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: white;
+  border: none;
+}
+
+.advanced-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f85a88 0%, #fed12e 100%);
+  transform: translateY(-1px);
 }
 .dynamic-btn {
   background-color: #e8f5e9; 

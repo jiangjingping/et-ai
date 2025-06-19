@@ -39,13 +39,51 @@
           <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
         </div>
         <div class="message-text" v-html="formatMessage(message.content)"></div>
+
+        <!-- ECharts 图表显示 -->
         <div v-if="message.type === 'ai' && message.chartOptions && message.chartOptions.length > 0" class="charts-wrapper">
-          <ChartDisplay 
-            v-for="(chartOpt, chartIndex) in message.chartOptions" 
-            :key="`chart-${index}-${chartIndex}`" 
-            :option="chartOpt" 
+          <ChartDisplay
+            v-for="(chartOpt, chartIndex) in message.chartOptions"
+            :key="`chart-${index}-${chartIndex}`"
+            :option="chartOpt"
             class="ai-chart-display-item"
           />
+        </div>
+
+        <!-- 调试：显示图表数据信息 -->
+        <div v-if="message.type === 'ai' && showDebugInfo" class="debug-info">
+          <details>
+            <summary>📊 图表调试信息</summary>
+            <pre>chartOptions: {{ JSON.stringify(message.chartOptions, null, 2) }}</pre>
+            <pre>plotlyConfig: {{ JSON.stringify(message.plotlyConfig, null, 2) }}</pre>
+            <pre>chartType: {{ message.chartType }}</pre>
+          </details>
+        </div>
+
+        <!-- Plotly 高级图表显示 -->
+        <div v-if="message.type === 'ai' && message.plotlyConfig" class="charts-wrapper">
+          <AdvancedChartDisplay
+            :key="`plotly-${index}`"
+            :plotly-config="message.plotlyConfig"
+            :title="message.plotlyConfig.layout?.title?.text || '高级数据分析图表'"
+            :description="'基于 Plotly.js 的高级数据可视化'"
+            class="ai-chart-display-item"
+          />
+        </div>
+
+        <!-- 建议提示 -->
+        <div v-if="message.type === 'ai' && message.suggestion" class="suggestion-tip">
+          <div class="suggestion-content">
+            {{ message.suggestion }}
+          </div>
+        </div>
+
+        <!-- 意图信息（调试用） -->
+        <div v-if="message.type === 'ai' && message.intent && showDebugInfo" class="debug-info">
+          <details>
+            <summary>🔍 调试信息</summary>
+            <pre>{{ JSON.stringify(message.intent, null, 2) }}</pre>
+          </details>
         </div>
         <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
       </div>
@@ -69,10 +107,14 @@
 import { ref, watch, nextTick } from 'vue';
 import { renderMarkdown } from '../js/markdownRenderer.js';
 import ChartDisplay from '../ChartDisplay.vue';
+import AdvancedChartDisplay from '../AdvancedChartDisplay.vue';
 
 export default {
   name: 'ChatMessageList',
-  components: { ChartDisplay },
+  components: {
+    ChartDisplay,
+    AdvancedChartDisplay
+  },
   props: {
     messages: {
       type: Array,
@@ -89,6 +131,7 @@ export default {
   },
   setup(props) {
     const messagesContainer = ref(null);
+    const showDebugInfo = ref(false); // 调试信息开关
 
     const scrollToBottom = () => {
       nextTick(() => {
@@ -108,6 +151,7 @@ export default {
     return {
       messagesContainer,
       formatMessage,
+      showDebugInfo,
     };
   },
 };
@@ -253,6 +297,47 @@ export default {
 }
 
 .ai-chart-display-item {
+  margin-top: 12px;
+}
+
+.suggestion-tip {
+  margin-top: 12px;
+  padding: 10px;
+  background: #e8f5e8;
+  border-left: 4px solid #4caf50;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.suggestion-content {
+  color: #2e7d32;
+  font-style: italic;
+}
+
+.debug-info {
+  margin-top: 12px;
+  padding: 8px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.debug-info summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+}
+
+.debug-info pre {
+  margin: 8px 0 0 0;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 3px;
+  overflow-x: auto;
+  font-size: 10px;
+  color: #333;
 }
 
 /* Markdown-specific styles are not included here as they are global or handled by the renderer */

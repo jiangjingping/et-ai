@@ -17,6 +17,18 @@
         </div>
       </router-link>
 
+      <router-link to="/agent-test" class="nav-card featured">
+        <div class="new-badge">测试</div>
+        <div class="nav-icon">🧪</div>
+        <h3>Agent 系统测试</h3>
+        <p>测试新的智能代理架构</p>
+        <div class="nav-features">
+          <span class="feature">意图分析</span>
+          <span class="feature">工具路由</span>
+          <span class="feature">高级分析</span>
+        </div>
+      </router-link>
+
     </div>
 
     <div class="footer">

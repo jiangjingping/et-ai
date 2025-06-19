@@ -13,6 +13,11 @@ const router = createRouter({
       path: '/ai-chat',
       name: 'AI对话助手',
       component: () => import('../components/AIChatPanel.vue')
+    },
+    {
+      path: '/agent-test',
+      name: 'Agent测试',
+      component: () => import('../components/AgentTest.vue')
     }
   ]
 })
