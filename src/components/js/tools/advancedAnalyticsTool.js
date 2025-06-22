@@ -386,8 +386,11 @@ ${JSON.stringify(dataAnalysis.correlations, null, 2)}
 
             if (jsonString) {
                 console.log('🔍 [DEBUG] 原始JSON内容:', jsonString);
-                // 移除JSON字符串中的注释，以增加解析的健壮性
-                const cleanedJsonString = jsonString.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+                // 移除JSON字符串中的注释和尾随逗号，以增加解析的健壮性
+                const cleanedJsonString = jsonString
+                    .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '') // 移除注释
+                    .replace(/,\s*([}\]])/g, '$1'); // 移除尾随逗号
+                
                 console.log('✨ [DEBUG] 清理后的JSON内容:', cleanedJsonString);
                 
                 const config = JSON.parse(cleanedJsonString);
