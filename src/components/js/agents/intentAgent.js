@@ -21,16 +21,14 @@ export class IntentAgent extends BaseAgent {
 请根据用户输入，判断应该使用哪个工具来处理请求。
 
 可用工具：
-1. general_qa - 通用问答：处理与表格无关的一般性问题
-2. table_qa - 表格问答：回答关于表格数据的简单问题，不需要可视化
-3. simple_chart - 简易图表：生成基础的图表可视化（柱状图、折线图、饼图等）
-4. advanced_analytics - 高级分析：复杂的数据分析和高级可视化（统计分析、相关性分析、预测等）
+1. general_qa - 通用问答：处理与表格无关的一般性问题。
+2. table_qa - 表格问答：回答关于表格数据的简单问题，不涉及计算或图表。
+3. code_interpreter - 代码解释器：用于任何需要数据分析、计算、转换或可视化的任务。
 
 判断规则：
-- 如果没有表格数据，使用 general_qa
-- 如果是简单的数据查询、统计、对比问题，使用 table_qa
-- 如果需要基础图表展示（如"画个柱状图"、"制作饼图"），使用 simple_chart
-- 如果需要复杂分析（如"分析相关性"、"预测趋势"、"聚类分析"），使用 advanced_analytics
+- 如果没有表格数据，或问题与数据无关，使用 general_qa。
+- 如果只是简单地从表格中查找或读取信息，使用 table_qa。
+- **任何**涉及计算（如平均值、总和）、数据操作、图表制作（任何类型的图表）、或复杂分析（如趋势、相关性）的请求，**都必须使用 code_interpreter**。
 
 请以JSON格式返回结果：
 {
@@ -186,57 +184,30 @@ export class IntentAgent extends BaseAgent {
         console.log('🔍 [DEBUG] 开始关键词匹配分析:', userInput);
         const input = userInput.toLowerCase();
 
-        // 高级分析关键词（更具体的关键词，优先级更高）
-        const advancedKeywords = [
-            '相关性', '相关关系', 'correlation',
-            '趋势分析', '预测', 'trend', 'forecast', 'predict',
-            '聚类', '分组', 'cluster', 'clustering',
-            '回归', '统计分析', 'regression', 'statistical',
-            '方差', '分布', 'variance', 'distribution'
+        // Code Interpreter 关键词
+        const interpreterKeywords = [
+            '图', '表', '可视化', '画', '绘制', '展示', '分析', '计算', '统计',
+            '平均', '总和', '最大', '最小', '趋势', '预测', '相关性', '分布',
+            'chart', 'plot', 'graph', 'visualize', 'analyze', 'calculate', 'stat'
         ];
 
-        // 简单图表关键词
-        const chartKeywords = [
-            '图', '图表', '可视化', '画', '绘制', '展示',
-            '柱状图', '折线图', '饼图', '散点图',
-            'chart', 'plot', 'graph', 'visualize'
-        ];
+        const matchedKeywords = interpreterKeywords.filter(keyword => input.includes(keyword));
 
-        // 检查匹配的关键词
-        const matchedAdvanced = advancedKeywords.filter(keyword => input.includes(keyword));
-        const matchedChart = chartKeywords.filter(keyword => input.includes(keyword));
-
-        console.log('🔬 [DEBUG] 匹配的高级分析关键词:', matchedAdvanced);
-        console.log('📊 [DEBUG] 匹配的图表关键词:', matchedChart);
-
-        // 优先检查高级分析关键词
-        if (matchedAdvanced.length > 0) {
+        if (matchedKeywords.length > 0) {
             const result = {
-                tool: 'advanced_analytics',
+                tool: 'code_interpreter',
                 confidence: 0.8,
-                reasoning: `Detected advanced analysis keywords: ${matchedAdvanced.join(', ')}`,
-                parameters: { analysisType: 'general' }
+                reasoning: `Detected analysis/chart keywords: ${matchedKeywords.join(', ')}`,
+                parameters: {}
             };
-            console.log('🎯 [DEBUG] 选择高级分析工具:', result);
-            return result;
-        }
-
-        // 然后检查图表关键词
-        if (matchedChart.length > 0) {
-            const result = {
-                tool: 'simple_chart',
-                confidence: 0.8,
-                reasoning: `Detected chart/visualization keywords: ${matchedChart.join(', ')}`,
-                parameters: { chartType: 'auto' }
-            };
-            console.log('📊 [DEBUG] 选择简易图表工具:', result);
+            console.log('🎯 [DEBUG] 选择 Code Interpreter 工具:', result);
             return result;
         }
 
         const result = {
             tool: 'table_qa',
             confidence: 0.6,
-            reasoning: 'Default to table QA',
+            reasoning: 'No specific analysis keywords detected, defaulting to table QA.',
             parameters: {}
         };
         console.log('💬 [DEBUG] 默认选择表格问答工具:', result);
@@ -248,7 +219,7 @@ export class IntentAgent extends BaseAgent {
      * @param {Object} intent - 原始意图结果
      */
     validateAndNormalizeIntent(intent) {
-        const validTools = ['general_qa', 'table_qa', 'simple_chart', 'advanced_analytics'];
+        const validTools = ['general_qa', 'table_qa', 'code_interpreter'];
         
         if (!intent.tool || !validTools.includes(intent.tool)) {
             intent.tool = 'table_qa';

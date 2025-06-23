@@ -72,7 +72,7 @@ function getCurrentLLMConfigInternal() { // Renamed to avoid conflict if exporte
 
 // 调用LLM API (非流式)
 // 使用OpenAI兼容格式，支持更好的消息结构和参数控制
-async function callQwenAPI(prompt, systemPrompt = '') {
+async function callQwenAPI(prompt, systemPrompt = '', options = { jsonMode: false }) {
     const llmConfig = getCurrentLLMConfigInternal();
 
     if (!llmConfig.apiKey) {
@@ -91,23 +91,32 @@ async function callQwenAPI(prompt, systemPrompt = '') {
         content: prompt
     });
 
+    const requestBody = {
+        model: llmConfig.model,
+        messages: messages,
+        temperature: llmConfig.temperature,
+        max_tokens: llmConfig.maxTokens,
+        top_p: llmConfig.topP,
+        stream: false
+    };
+
+    if (options.jsonMode) {
+        requestBody.response_format = { type: "json_object" };
+    }
+
     try {
-        const response = await axios.post(llmConfig.baseURL, {
-            model: llmConfig.model,
-            messages: messages,
-            temperature: llmConfig.temperature,
-            max_tokens: llmConfig.maxTokens,
-            top_p: llmConfig.topP,
-            stream: false
-        }, {
+        const response = await axios.post(llmConfig.baseURL, requestBody, {
             headers: {
                 'Authorization': `Bearer ${llmConfig.apiKey}`,
                 'Content-Type': 'application/json'
             }
         });
 
-        if (response.data?.choices?.[0]?.message) {
-            return response.data.choices[0].message.content;
+        const message = response.data?.choices?.[0]?.message;
+        if (message) {
+            // 如果是JSON模式，内容本身就是JSON字符串，直接返回消息对象
+            // 否则，只返回内容字符串
+            return options.jsonMode ? message : message.content;
         } else {
             throw new Error('API响应格式错误或无有效内容');
         }

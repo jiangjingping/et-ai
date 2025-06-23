@@ -6,8 +6,7 @@
 import { toolRegistry } from '../agents/toolRegistry.js';
 import { GeneralQATool } from './generalQATool.js';
 import { TableQATool } from './tableQATool.js';
-import { SimpleChartTool } from './simpleChartTool.js';
-import { AdvancedAnalyticsTool } from './advancedAnalyticsTool.js';
+import CodeInterpreterTool from './codeInterpreterTool/index.js';
 
 /**
  * 初始化所有工具
@@ -20,20 +19,17 @@ export async function initializeTools() {
         // 创建工具实例
         const generalQA = new GeneralQATool();
         const tableQA = new TableQATool();
-        const simpleChart = new SimpleChartTool();
-        const advancedAnalytics = new AdvancedAnalyticsTool();
+        const codeInterpreter = new CodeInterpreterTool();
         
         // 初始化工具
         await generalQA.initialize();
         await tableQA.initialize();
-        await simpleChart.initialize();
-        await advancedAnalytics.initialize();
+        await codeInterpreter.initialize();
         
         // 注册工具到注册表
         toolRegistry.register('general_qa', generalQA);
         toolRegistry.register('table_qa', tableQA);
-        toolRegistry.register('simple_chart', simpleChart);
-        toolRegistry.register('advanced_analytics', advancedAnalytics);
+        toolRegistry.register('code_interpreter', codeInterpreter);
         
         // 初始化注册表
         await toolRegistry.initialize();
@@ -67,8 +63,7 @@ export function getToolsDescriptions() {
 export {
     GeneralQATool,
     TableQATool,
-    SimpleChartTool,
-    AdvancedAnalyticsTool
+    CodeInterpreterTool
 };
 
 // 导出工具注册表
