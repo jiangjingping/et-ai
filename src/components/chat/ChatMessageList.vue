@@ -40,27 +40,33 @@
         </div>
         <div class="message-text" v-html="formatMessage(message.content)"></div>
 
-        <!-- ECharts 图表显示 -->
-        <div v-if="message.type === 'ai' && message.chartOptions && message.chartOptions.length > 0" class="charts-wrapper">
-          <ChartDisplay
-            v-for="(chartOpt, chartIndex) in message.chartOptions"
-            :key="`chart-${index}-${chartIndex}`"
-            :option="chartOpt"
-            class="ai-chart-display-item"
-          />
+        <!-- AI分析步骤流式展示 -->
+        <div v-if="message.type === 'ai' && message.steps && message.steps.length > 0" class="analysis-steps">
+          <div v-for="(step, stepIndex) in message.steps" :key="`step-${index}-${stepIndex}`" class="analysis-step">
+            <details open>
+              <summary>第 {{ step.round || stepIndex + 1 }} 步: {{ step.thought || '正在思考...' }}</summary>
+              <div class="step-content">
+                <div v-if="step.code" class="step-section">
+                  <strong>代码:</strong>
+                  <pre><code class="language-javascript">{{ step.code }}</code></pre>
+                </div>
+                <div v-if="step.execution_result && step.execution_result.output" class="step-section result">
+                  <strong>结果:</strong>
+                  <pre><code>{{ step.execution_result.output }}</code></pre>
+                </div>
+                <div v-if="step.execution_result && step.execution_result.error" class="step-section error">
+                  <strong>错误:</strong>
+                  <pre><code>{{ step.execution_result.error }}</code></pre>
+                </div>
+                <div v-if="step.execution_result && step.execution_result.image_url" class="report-image">
+                  <img :src="`http://127.0.0.1:8000/outputs/${step.execution_result.image_url}`" alt="分析图表" />
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
 
-        <!-- 调试：显示图表数据信息 -->
-        <div v-if="message.type === 'ai' && showDebugInfo" class="debug-info">
-          <details>
-            <summary>📊 图表调试信息</summary>
-            <pre>chartOptions: {{ JSON.stringify(message.chartOptions, null, 2) }}</pre>
-            <pre>plotlyConfig: {{ JSON.stringify(message.plotlyConfig, null, 2) }}</pre>
-            <pre>chartType: {{ message.chartType }}</pre>
-          </details>
-        </div>
-
-        <!-- Plotly 高级图表显示 -->
+        <!-- Plotly 高级图表显示 (用于最终结果) -->
         <div v-if="message.type === 'ai' && message.plotlyConfig" class="charts-wrapper">
           <AdvancedChartDisplay
             :key="`plotly-${index}`"
@@ -71,20 +77,13 @@
           />
         </div>
 
-        <!-- 建议提示 -->
-        <div v-if="message.type === 'ai' && message.suggestion" class="suggestion-tip">
-          <div class="suggestion-content">
-            {{ message.suggestion }}
+        <!-- 后端生成的图片展示 -->
+        <div v-if="message.type === 'ai' && message.images && message.images.length > 0" class="report-images">
+          <div v-for="(image, imgIndex) in message.images" :key="`img-${index}-${imgIndex}`" class="report-image">
+            <img :src="`http://127.0.0.1:8000/outputs/${image}`" alt="分析图表" />
           </div>
         </div>
 
-        <!-- 意图信息（调试用） -->
-        <div v-if="message.type === 'ai' && message.intent && showDebugInfo" class="debug-info">
-          <details>
-            <summary>🔍 调试信息</summary>
-            <pre>{{ JSON.stringify(message.intent, null, 2) }}</pre>
-          </details>
-        </div>
         <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
       </div>
     </div>
@@ -106,13 +105,11 @@
 <script>
 import { ref, watch, nextTick } from 'vue';
 import { renderMarkdown } from '../js/markdownRenderer.js';
-import ChartDisplay from '../ChartDisplay.vue';
 import AdvancedChartDisplay from '../AdvancedChartDisplay.vue';
 
 export default {
   name: 'ChatMessageList',
   components: {
-    ChartDisplay,
     AdvancedChartDisplay
   },
   props: {
@@ -131,7 +128,6 @@ export default {
   },
   setup(props) {
     const messagesContainer = ref(null);
-    const showDebugInfo = ref(false); // 调试信息开关
 
     const scrollToBottom = () => {
       nextTick(() => {
@@ -151,7 +147,6 @@ export default {
     return {
       messagesContainer,
       formatMessage,
-      showDebugInfo,
     };
   },
 };
@@ -163,182 +158,100 @@ export default {
   overflow-y: auto;
   padding: 15px;
 }
-
 .welcome-message {
   background: #f8f9fa;
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 15px;
 }
-
-.welcome-content h4 {
-  margin: 0 0 10px 0;
-  color: #2c3e50;
-}
-
-.welcome-content ul {
-  margin: 10px 0;
-  padding-left: 20px;
-}
-
-.welcome-content li {
-  margin: 5px 0;
-  font-size: 14px;
-}
-
-.usage-tips {
-  margin-top: 20px;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border-left: 4px solid #3498db;
-}
-
-.usage-tips p {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-}
-
 .message {
   margin-bottom: 15px;
 }
-
 .message.user .message-content {
   background: #e3f2fd;
   margin-left: 20px;
 }
-
 .message.ai .message-content {
   background: #f5f5f5;
   margin-right: 20px;
 }
-
-.message.system .message-content {
-  background: #fff3cd;
-  text-align: center;
-  font-style: italic;
-}
-
 .message-content {
   padding: 12px;
   border-radius: 8px;
   border: 1px solid #e1e5e9;
 }
-
 .message-header {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
   font-size: 12px;
 }
-
 .sender {
   font-weight: 500;
-  color: #2c3e50;
 }
-
 .time {
   color: #7f8c8d;
 }
-
-.streaming-indicator {
-  color: #3498db;
-  font-size: 11px;
-  font-style: italic;
-  margin-left: 8px;
-}
-
 .message-text {
   line-height: 1.6;
   font-size: 14px;
-  position: relative;
   word-wrap: break-word;
-  overflow-wrap: break-word;
 }
-
-.streaming-cursor {
-  display: inline-block;
-  color: #3498db;
-  font-weight: bold;
-  animation: blink 1s infinite;
-  margin-left: 2px;
+.analysis-steps {
+  margin-top: 12px;
+  border-top: 1px solid #e1e5e9;
+  padding-top: 12px;
 }
-
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+.analysis-step {
+  margin-bottom: 10px;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
 }
-
-.loading-dots {
-  display: flex;
-  gap: 4px;
+.analysis-step details {
+  padding: 10px;
 }
-
-.loading-dots span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #3498db;
-  animation: loading 1.4s infinite ease-in-out;
+.analysis-step summary {
+  font-weight: 500;
+  cursor: pointer;
 }
-
-.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
-.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
-
-@keyframes loading {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+.step-content {
+  margin-top: 10px;
+  padding-left: 15px;
+  border-left: 2px solid #3498db;
 }
-
+.step-section {
+  margin-bottom: 8px;
+}
+.step-section strong {
+  font-size: 13px;
+  color: #555;
+}
+.step-section pre {
+  margin: 4px 0 0 0;
+  padding: 10px;
+  background: #fdfdfd;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.step-section.error pre {
+  background: #fff5f5;
+  color: #c0392b;
+}
 .charts-wrapper {
+  margin-top: 12px;
+}
+.report-images {
+  margin-top: 15px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 15px;
 }
-
-.ai-chart-display-item {
-  margin-top: 12px;
-}
-
-.suggestion-tip {
-  margin-top: 12px;
-  padding: 10px;
-  background: #e8f5e8;
-  border-left: 4px solid #4caf50;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.suggestion-content {
-  color: #2e7d32;
-  font-style: italic;
-}
-
-.debug-info {
-  margin-top: 12px;
-  padding: 8px;
-  background: #f5f5f5;
+.report-image img {
+  max-width: 100%;
+  border-radius: 6px;
   border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 11px;
 }
-
-.debug-info summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: #666;
-}
-
-.debug-info pre {
-  margin: 8px 0 0 0;
-  padding: 8px;
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 3px;
-  overflow-x: auto;
-  font-size: 10px;
-  color: #333;
-}
-
-/* Markdown-specific styles are not included here as they are global or handled by the renderer */
 </style>
