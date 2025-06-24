@@ -92,6 +92,7 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
 
           if (log.type === 'log') {
             updatedMessage.currentThought = `⚙️ ${log.content}`;
+            messages.value.splice(messageIndex, 1, updatedMessage);
           } 
           else if (log.type === 'step') {
             if (log.thought) {
@@ -113,17 +114,22 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
               if (log.execution_result) updatedStep.execution_result = log.execution_result;
               updatedMessage.steps[stepIndex] = updatedStep;
             }
+            messages.value.splice(messageIndex, 1, updatedMessage);
           } 
           else if (log.type === 'report') {
-            updatedMessage.content = log.content?.text || "分析完成。";
-            updatedMessage.images = log.content?.images || [];
-            updatedMessage.isMarkdown = true; // 标记为Markdown内容
-            updatedMessage.currentThought = '';
+            // 创建一个全新的、干净的最终消息对象
+            const finalMessage = {
+              ...updatedMessage, // 保留 id, type, time 等基础属性
+              content: log.content?.text || "分析完成。",
+              images: log.content?.images || [],
+              isMarkdown: true,
+              steps: [], // 显式地清空步骤
+              currentThought: '',
+              isStreaming: false,
+            };
+            messages.value.splice(messageIndex, 1, finalMessage);
             isLoading.value = false;
-            updatedMessage.isStreaming = false;
           }
-
-          messages.value.splice(messageIndex, 1, updatedMessage);
           
           nextTick(() => {
             window.dispatchEvent(new Event('resize'));
