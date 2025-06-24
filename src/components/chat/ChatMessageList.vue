@@ -49,27 +49,57 @@
 
         <!-- AI分析步骤流式展示 -->
         <div v-if="message.type === 'ai' && message.steps && message.steps.length > 0" class="analysis-steps">
-          <div v-for="(step, stepIndex) in message.steps" :key="`step-${index}-${stepIndex}`" class="analysis-step">
-            <details open>
-              <summary>第 {{ step.round || stepIndex + 1 }} 步: {{ step.thought || '正在思考...' }}</summary>
-              <div class="step-content">
-                <div v-if="step.code" class="step-section">
-                  <strong>代码:</strong>
-                  <pre><code class="language-javascript">{{ step.code }}</code></pre>
-                </div>
-                <div v-if="step.execution_result && step.execution_result.output" class="step-section result">
-                  <strong>结果:</strong>
-                  <pre><code>{{ step.execution_result.output }}</code></pre>
-                </div>
-                <div v-if="step.execution_result && step.execution_result.error" class="step-section error">
-                  <strong>错误:</strong>
-                  <pre><code>{{ step.execution_result.error }}</code></pre>
-                </div>
-                <div v-if="step.execution_result && step.execution_result.image_url" class="report-image">
-                  <img :src="`http://127.0.0.1:8000/outputs/${step.execution_result.image_url}`" alt="分析图表" />
-                </div>
+          <!-- Case 1: Final report, steps are collapsed by default -->
+          <details v-if="message.areStepsVisible === false" class="analysis-step-details">
+            <summary>查看详细分析过程</summary>
+            <div class="step-wrapper">
+              <div v-for="(step, stepIndex) in message.steps" :key="`step-${index}-${stepIndex}`" class="analysis-step">
+                  <div class="step-header">第 {{ step.round || stepIndex + 1 }} 步: {{ step.thought || '正在思考...' }}</div>
+                  <div class="step-content">
+                      <div v-if="step.code" class="step-section">
+                        <strong>代码:</strong>
+                        <pre><code class="language-javascript">{{ step.code }}</code></pre>
+                      </div>
+                      <div v-if="step.execution_result && step.execution_result.output" class="step-section result">
+                        <strong>结果:</strong>
+                        <pre><code>{{ step.execution_result.output }}</code></pre>
+                      </div>
+                      <div v-if="step.execution_result && step.execution_result.error" class="step-section error">
+                        <strong>错误:</strong>
+                        <pre><code>{{ step.execution_result.error }}</code></pre>
+                      </div>
+                      <div v-if="step.execution_result && step.execution_result.image_url" class="report-image">
+                        <img :src="`http://127.0.0.1:8000/outputs/${step.execution_result.image_url}`" alt="分析图表" />
+                      </div>
+                  </div>
               </div>
-            </details>
+            </div>
+          </details>
+
+          <!-- Case 2: Analysis in progress, steps are expanded -->
+          <div v-else>
+            <div v-for="(step, stepIndex) in message.steps" :key="`step-${index}-${stepIndex}`" class="analysis-step">
+              <details open>
+                <summary>第 {{ step.round || stepIndex + 1 }} 步: {{ step.thought || '正在思考...' }}</summary>
+                <div class="step-content">
+                    <div v-if="step.code" class="step-section">
+                      <strong>代码:</strong>
+                      <pre><code class="language-javascript">{{ step.code }}</code></pre>
+                    </div>
+                    <div v-if="step.execution_result && step.execution_result.output" class="step-section result">
+                      <strong>结果:</strong>
+                      <pre><code>{{ step.execution_result.output }}</code></pre>
+                    </div>
+                    <div v-if="step.execution_result && step.execution_result.error" class="step-section error">
+                      <strong>错误:</strong>
+                      <pre><code>{{ step.execution_result.error }}</code></pre>
+                    </div>
+                    <div v-if="step.execution_result && step.execution_result.image_url" class="report-image">
+                      <img :src="`http://127.0.0.1:8000/outputs/${step.execution_result.image_url}`" alt="分析图表" />
+                    </div>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -239,6 +269,27 @@ export default {
 .analysis-step summary {
   font-weight: 500;
   cursor: pointer;
+}
+.analysis-step-details {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+}
+.analysis-step-details summary {
+  padding: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+.step-wrapper {
+  padding: 0 10px 10px 10px;
+}
+.step-header {
+  font-weight: 500;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  margin-top: 10px;
 }
 .step-content {
   margin-top: 10px;

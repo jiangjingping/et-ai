@@ -117,16 +117,22 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
             messages.value.splice(messageIndex, 1, updatedMessage);
           } 
           else if (log.type === 'report') {
-            // 创建一个全新的、干净的最终消息对象
+            // 当收到最终报告时，保留步骤但默认折叠
             const finalMessage = {
-              ...updatedMessage, // 保留 id, type, time 等基础属性
+              ...updatedMessage,
               content: log.content?.text || "分析完成。",
               images: log.content?.images || [],
               isMarkdown: true,
-              steps: [], // 显式地清空步骤
               currentThought: '',
               isStreaming: false,
+              areStepsVisible: false, // 添加此标志以控制UI
             };
+
+            // 移除最后一个多余的步骤
+            if (finalMessage.steps.length > 0) {
+              finalMessage.steps = finalMessage.steps.slice(0, -1);
+            }
+
             messages.value.splice(messageIndex, 1, finalMessage);
             isLoading.value = false;
           }
