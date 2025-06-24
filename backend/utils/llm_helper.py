@@ -46,6 +46,37 @@ class LLMHelper:
         except Exception as e:
             print(f"LLM调用失败: {e}")
             return ""
+
+    async def async_call_stream(self, prompt: str, system_prompt: str = None, max_tokens: int = None, temperature: float = None):
+        """异步流式调用LLM"""
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        kwargs = {'stream': True}
+        if max_tokens is not None:
+            kwargs['max_tokens'] = max_tokens
+        else:
+            kwargs['max_tokens'] = self.config.max_tokens
+            
+        if temperature is not None:
+            kwargs['temperature'] = temperature
+        else:
+            kwargs['temperature'] = self.config.temperature
+            
+        try:
+            stream = await self.client.chat_completions_create(
+                messages=messages,
+                **kwargs
+            )
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content or ""
+                if content:
+                    yield content
+        except Exception as e:
+            print(f"LLM流式调用失败: {e}")
+            yield ""
     
     def call(self, prompt: str, system_prompt: str = None, max_tokens: int = None, temperature: float = None) -> str:
         """同步调用LLM"""

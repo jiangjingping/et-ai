@@ -89,14 +89,27 @@ class DataAnalysisAgent:
                 print(f"System Prompt: {formatted_system_prompt[:200]}...")
                 print(f"User Prompt: {self._build_conversation_prompt()}")
 
-                response = await self.llm.async_call(
+                response_stream = self.llm.async_call_stream(
                     prompt=self._build_conversation_prompt(),
                     system_prompt=formatted_system_prompt
                 )
                 
-                process_result = self._process_response(response)
+                full_response = ""
+                # 初始化一个空的step用于流式更新
+                current_step = {
+                    "type": "step", "round": self.current_round,
+                    "thought": "", "code": "", "execution_result": {}
+                }
+                await queue.put(current_step)
+
+                async for chunk in response_stream:
+                    full_response += chunk
+                    current_step["thought"] = full_response # 实时更新thought
+                    await queue.put(current_step)
+
+                process_result = self._process_response(full_response)
                 
-                parsed_yaml = self.llm.parse_yaml_response(response)
+                parsed_yaml = self.llm.parse_yaml_response(full_response)
                 await queue.put({
                     "type": "step", "round": self.current_round,
                     "thought": parsed_yaml.get('thought', ''),
@@ -109,7 +122,7 @@ class DataAnalysisAgent:
                     print("--- Analysis Finished ---")
                     break
                 
-                self.conversation_history.append({'role': 'assistant', 'content': response})
+                self.conversation_history.append({'role': 'assistant', 'content': full_response})
                 if process_result.get('feedback'):
                     self.conversation_history.append({'role': 'user', 'content': f"代码执行反馈:\n{process_result['feedback']}"})
 

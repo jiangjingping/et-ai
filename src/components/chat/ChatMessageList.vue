@@ -38,6 +38,13 @@
           <span class="time">{{ message.time }}</span>
           <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
         </div>
+
+        <!-- 实时思考过程 -->
+        <div v-if="message.type === 'ai' && message.isStreaming && message.currentThought" class="thought-process">
+          <span class="thought-icon">🤔</span>
+          <div class="thought-text" v-html="formatMessage(message.currentThought)"></div>
+        </div>
+
         <div class="message-text" v-html="formatMessage(message.content)"></div>
 
         <!-- AI分析步骤流式展示 -->
@@ -196,6 +203,24 @@ export default {
   line-height: 1.6;
   font-size: 14px;
   word-wrap: break-word;
+}
+.thought-process {
+  background-color: #e9f5fe;
+  border: 1px solid #d1e9fc;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  font-size: 14px;
+}
+.thought-icon {
+  margin-right: 10px;
+  font-size: 18px;
+}
+.thought-text {
+  flex: 1;
+  line-height: 1.5;
 }
 .analysis-steps {
   margin-top: 12px;

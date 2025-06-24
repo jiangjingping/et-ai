@@ -62,9 +62,10 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
     inputMessage.value = '';
     isLoading.value = true;
 
-    const aiMessage = addMessage('ai', '正在连接后端分析服务...', { 
-        isStreaming: true, 
-        steps: [] 
+    const aiMessage = addMessage('ai', '正在连接后端分析服务...', {
+      isStreaming: true,
+      steps: [],
+      currentThought: '', // 新增字段，用于实时显示思考过程
     });
 
     try {
@@ -84,34 +85,61 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
 
       const callbacks = {
         onChunk: (log) => {
+          aiMessage.isStreaming = true;
+          
           if (log.type === 'log') {
-            aiMessage.content = `⚙️ ${log.content}`;
-          } else if (log.type === 'step') {
-            const step = {
-              thought: log.thought,
-              code: log.code,
-              execution_result: log.execution_result, // 直接保存整个结果对象
-              is_final: log.is_final
-            };
-            // Add or update the step for the current round
-            const existingStepIndex = aiMessage.steps.findIndex(s => s.round === log.round);
-            if (existingStepIndex > -1) {
-                aiMessage.steps[existingStepIndex] = { ...aiMessage.steps[existingStepIndex], ...step };
-            } else {
-                aiMessage.steps.push({ round: log.round, ...step });
+            // 系统日志直接显示
+            aiMessage.currentThought = `⚙️ ${log.content}`;
+          } 
+          else if (log.type === 'step') {
+            // 实时显示思考内容
+            if (log.thought) {
+              aiMessage.currentThought = log.thought;
             }
-          } else if (log.type === 'report') {
-            const report = log.content || {};
-            aiMessage.content = report.text || "分析完成。";
-            aiMessage.images = report.images || [];
-            // 收到最终报告后，手动调用 onComplete 来结束加载状态
-            callbacks.onComplete();
+            
+            // 更新步骤信息
+            const stepIndex = aiMessage.steps.findIndex(s => s.round === log.round);
+            if (stepIndex === -1) {
+              // 新步骤：创建并添加到数组
+              aiMessage.steps.push({
+                round: log.round,
+                thought: log.thought || '',
+                code: log.code || '',
+                execution_result: log.execution_result || {}
+              });
+            } else {
+              // 现有步骤：创建新对象触发响应式更新
+              const updatedStep = { ...aiMessage.steps[stepIndex] };
+              if (log.thought) updatedStep.thought = log.thought;
+              if (log.code) updatedStep.code = log.code;
+              if (log.execution_result) updatedStep.execution_result = log.execution_result;
+              
+              // 替换数组元素触发响应式更新
+              aiMessage.steps.splice(stepIndex, 1, updatedStep);
+            }
+          } 
+          else if (log.type === 'report') {
+            // 最终报告
+            aiMessage.content = log.content?.text || "分析完成。";
+            aiMessage.images = log.content?.images || [];
+            aiMessage.currentThought = ''; // 清空思考过程
+            isLoading.value = false;
+            aiMessage.isStreaming = false;
           }
-          nextTick(() => window.dispatchEvent(new Event('resize')));
+          
+          // 强制更新视图
+          nextTick(() => {
+            window.dispatchEvent(new Event('resize'));
+          });
         },
         onComplete: () => {
+          // onComplete现在作为最终的保障，确保所有状态都被正确设置
           isLoading.value = false;
           aiMessage.isStreaming = false;
+          aiMessage.currentThought = ''; // 确保清空
+          if (aiMessage.content.endsWith('...')) {
+            aiMessage.content = '分析流程已结束。';
+          }
         },
         onError: (error) => {
           addSystemMessage(`❌ 与后端服务通信失败: ${error.message}`);
