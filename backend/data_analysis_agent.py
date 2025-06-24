@@ -109,13 +109,15 @@ class DataAnalysisAgent:
 
                 process_result = self._process_response(full_response)
                 
-                parsed_yaml = self.llm.parse_yaml_response(full_response)
-                await queue.put({
-                    "type": "step", "round": self.current_round,
-                    "thought": parsed_yaml.get('thought', ''),
-                    "code": process_result.get('code', ''),
-                    "execution_result": process_result.get('result', {}),
-                })
+                # 仅当分析未完成时，才发送“步骤”更新
+                if process_result.get('action') != 'analysis_complete':
+                    parsed_yaml = self.llm.parse_yaml_response(full_response)
+                    await queue.put({
+                        "type": "step", "round": self.current_round,
+                        "thought": parsed_yaml.get('thought', ''),
+                        "code": process_result.get('code', ''),
+                        "execution_result": process_result.get('result', {}),
+                    })
                 
                 if not process_result.get('continue', True):
                     await queue.put({"type": "report", "content": process_result.get('final_report')})

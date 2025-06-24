@@ -65,7 +65,8 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
     const aiMessage = addMessage('ai', '正在连接后端分析服务...', {
       isStreaming: true,
       steps: [],
-      currentThought: '', // 新增字段，用于实时显示思考过程
+      currentThought: '',
+      images: [], // 确保 images 属性被初始化
     });
 
     try {
@@ -77,74 +78,79 @@ export function useAgentChat(inputMessage, isTableContextAttached) {
         }
       } else {
         addSystemMessage('ℹ️ 未关联表格数据，将进行通用对话。');
-        // 如果没有表格数据，或许应该调用不同的服务或给出提示
-        // 此处暂时依然调用后端，让后端处理无数据的情况
       }
 
       const csvData = tableData ? toCSV(tableData) : '';
 
       const callbacks = {
         onChunk: (log) => {
-          aiMessage.isStreaming = true;
-          
+          const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id);
+          if (messageIndex === -1) return;
+
+          const updatedMessage = { ...messages.value[messageIndex] };
+          updatedMessage.isStreaming = true;
+
           if (log.type === 'log') {
-            // 系统日志直接显示
-            aiMessage.currentThought = `⚙️ ${log.content}`;
+            updatedMessage.currentThought = `⚙️ ${log.content}`;
           } 
           else if (log.type === 'step') {
-            // 实时显示思考内容
             if (log.thought) {
-              aiMessage.currentThought = log.thought;
+              updatedMessage.currentThought = log.thought;
             }
             
-            // 更新步骤信息
-            const stepIndex = aiMessage.steps.findIndex(s => s.round === log.round);
+            const stepIndex = updatedMessage.steps.findIndex(s => s.round === log.round);
             if (stepIndex === -1) {
-              // 新步骤：创建并添加到数组
-              aiMessage.steps.push({
+              updatedMessage.steps.push({
                 round: log.round,
                 thought: log.thought || '',
                 code: log.code || '',
                 execution_result: log.execution_result || {}
               });
             } else {
-              // 现有步骤：创建新对象触发响应式更新
-              const updatedStep = { ...aiMessage.steps[stepIndex] };
+              const updatedStep = { ...updatedMessage.steps[stepIndex] };
               if (log.thought) updatedStep.thought = log.thought;
               if (log.code) updatedStep.code = log.code;
               if (log.execution_result) updatedStep.execution_result = log.execution_result;
-              
-              // 替换数组元素触发响应式更新
-              aiMessage.steps.splice(stepIndex, 1, updatedStep);
+              updatedMessage.steps[stepIndex] = updatedStep;
             }
           } 
           else if (log.type === 'report') {
-            // 最终报告
-            aiMessage.content = log.content?.text || "分析完成。";
-            aiMessage.images = log.content?.images || [];
-            aiMessage.currentThought = ''; // 清空思考过程
+            updatedMessage.content = log.content?.text || "分析完成。";
+            updatedMessage.images = log.content?.images || [];
+            updatedMessage.isMarkdown = true; // 标记为Markdown内容
+            updatedMessage.currentThought = '';
             isLoading.value = false;
-            aiMessage.isStreaming = false;
+            updatedMessage.isStreaming = false;
           }
+
+          messages.value.splice(messageIndex, 1, updatedMessage);
           
-          // 强制更新视图
           nextTick(() => {
             window.dispatchEvent(new Event('resize'));
           });
         },
         onComplete: () => {
-          // onComplete现在作为最终的保障，确保所有状态都被正确设置
           isLoading.value = false;
-          aiMessage.isStreaming = false;
-          aiMessage.currentThought = ''; // 确保清空
-          if (aiMessage.content.endsWith('...')) {
-            aiMessage.content = '分析流程已结束。';
+          const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id);
+          if (messageIndex !== -1) {
+            const updatedMessage = { ...messages.value[messageIndex] };
+            updatedMessage.isStreaming = false;
+            updatedMessage.currentThought = '';
+            if (updatedMessage.content.endsWith('...')) {
+              updatedMessage.content = '分析流程已结束。';
+            }
+            messages.value.splice(messageIndex, 1, updatedMessage);
           }
         },
         onError: (error) => {
           addSystemMessage(`❌ 与后端服务通信失败: ${error.message}`);
           isLoading.value = false;
-          aiMessage.isStreaming = false;
+          const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id);
+          if (messageIndex !== -1) {
+            const updatedMessage = { ...messages.value[messageIndex] };
+            updatedMessage.isStreaming = false;
+            messages.value.splice(messageIndex, 1, updatedMessage);
+          }
         }
       };
 

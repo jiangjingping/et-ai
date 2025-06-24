@@ -75,8 +75,8 @@ async def analyze_data(request: AnalysisRequest):
                 if log_chunk is None:
                     break
                 
-                # 格式化为 Server-Sent Events (SSE)
-                yield f"data: {json.dumps(log_chunk)}\n\n"
+                # 格式化为 Server-Sent Events (SSE)，并确保中文正常显示
+                yield f"data: {json.dumps(log_chunk, ensure_ascii=False)}\n\n"
         
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
