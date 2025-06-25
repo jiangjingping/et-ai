@@ -4,6 +4,131 @@ var WPS_Enum = {
     msoCTPDockPositionRight:2
 }
 
+/**
+ * 获取当前WPS表格中选定或已使用区域的数据。
+ * @param {boolean} asRaw - 如果为 true，返回用于数据分析的原始JSON对象数组。如果为 false，返回用于聊天上下文的Markdown字符串。
+ * @returns {Array<Object>|string|null} - 返回数据或null/空字符串。
+ */
+function getTableContextData(asRaw = false) {
+    try {
+        const app = wps.EtApplication();
+        if (!app) {
+            console.error("WPS Application object is not available.");
+            return asRaw ? null : "";
+        }
+        const activeSheet = app.ActiveSheet;
+        if (!activeSheet) {
+            console.warn("No active sheet found.");
+            return asRaw ? null : "";
+        }
+
+        let targetRange = null;
+        const selection = app.Selection;
+        const usedRange = activeSheet.UsedRange;
+
+        let useUserSelection = false;
+
+        if (selection && typeof selection.Address !== 'undefined' && selection.Parent && selection.Parent.Name === activeSheet.Name) {
+            let selectionCellCount = 0;
+            try {
+                if (typeof selection.CountLarge !== 'undefined') {
+                    selectionCellCount = selection.CountLarge;
+                } else if (typeof selection.Count !== 'undefined') {
+                    selectionCellCount = selection.Count;
+                }
+            } catch (e) {
+                console.warn("获取 selection.Count 失败:", e);
+            }
+            
+            if (selectionCellCount > 1) {
+                useUserSelection = true;
+            }
+        }
+
+        if (useUserSelection) {
+            targetRange = selection;
+        } else {
+            if (usedRange && typeof usedRange.Address !== 'undefined') {
+                let usedRangeCellCount = 0;
+                try {
+                    if (typeof usedRange.CountLarge !== 'undefined') {
+                        usedRangeCellCount = usedRange.CountLarge;
+                    } else if (typeof usedRange.Count !== 'undefined') {
+                        usedRangeCellCount = usedRange.Count;
+                    }
+                } catch (e) {
+                     console.warn("获取 usedRange.Count 失败:", e);
+                }
+
+                if (usedRangeCellCount > 0) {
+                    targetRange = usedRange;
+                }
+            }
+        }
+
+        if (!targetRange) {
+            console.warn("无法确定有效的数据区域。");
+            return asRaw ? null : "";
+        }
+
+        let dataValues = [];
+        try {
+            const rowCount = targetRange.Rows.Count;
+            const colCount = targetRange.Columns.Count;
+
+            if (rowCount === 0 || colCount === 0) {
+                return asRaw ? null : "";
+            }
+
+            for (let r = 1; r <= rowCount; r++) {
+                const rowData = [];
+                for (let c = 1; c <= colCount; c++) {
+                    let cellText = '';
+                    try {
+                        const cell = targetRange.Item(r, c);
+                        if (cell) {
+                            cellText = (typeof cell.Text === 'function') ? cell.Text() : cell.Text;
+                        }
+                    } catch (cellError) {
+                        cellText = "";
+                    }
+                    rowData.push(cellText === null || cellText === undefined ? "" : String(cellText));
+                }
+                dataValues.push(rowData);
+            }
+            
+            if (dataValues.length === 0) {
+                 return asRaw ? null : "";
+            }
+
+        } catch (e) {
+            console.error("遍历读取区域数据失败:", e);
+            return asRaw ? null : "";
+        }
+
+        if (asRaw) {
+            if (dataValues.length < 1) return [];
+            // For DataAnalysisAgent, convert to array of objects
+            const headers = dataValues[0];
+            const jsonData = dataValues.slice(1).map(row => {
+                const obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index];
+                });
+                return obj;
+            });
+            return jsonData;
+        } else {
+            // For standard chat, return as Markdown
+            return formatTableDataForAI(dataValues);
+        }
+    } catch (error) {
+        console.error('获取表格上下文数据失败:', error);
+        return asRaw ? null : "";
+    }
+}
+
+
 // AI功能相关的工具函数
 function getTableData(sheet, range) {
     try {
@@ -310,221 +435,7 @@ function formatTableDataForAI(data) {
         markdownTable += `| ${fullRow.join(' | ')} |\n`;
     });
 
-    // 如果原始数据只有一行，那么 body 为空，只输出表头和分隔符
-    // 如果原始数据为空数组（已被上面逻辑处理），这里不会执行
-
     return markdownTable;
-}
-
-// 获取上下文表格数据并格式化为Markdown
-function getTableContextDataAsMarkdown() {
-    try {
-        const app = wps.EtApplication();
-        if (!app) {
-            console.error("WPS Application object is not available.");
-            return "";
-        }
-        const activeSheet = app.ActiveSheet;
-        if (!activeSheet) {
-            console.warn("No active sheet found.");
-            return "";
-        }
-
-        let targetRange = null;
-        const selection = app.Selection;
-        const usedRange = activeSheet.UsedRange;
-
-        let useUserSelection = false;
-
-        if (selection && typeof selection.Address !== 'undefined' && selection.Parent && selection.Parent.Name === activeSheet.Name) {
-            // Selection 有效且在当前活动工作表
-            // 检查选中单元格的数量
-            // WPS JSAPI 中，Range 对象直接有 Count 或 CountLarge 属性，或者通过其 Cells 集合的 Count/CountLarge
-            let selectionCellCount = 0;
-            try {
-                // 优先尝试直接获取 Range 的单元格数量
-                if (typeof selection.CountLarge !== 'undefined') {
-                    selectionCellCount = selection.CountLarge;
-                } else if (typeof selection.Count !== 'undefined') {
-                    selectionCellCount = selection.Count;
-                } else if (selection.Cells && typeof selection.Cells.CountLarge !== 'undefined') {
-                    selectionCellCount = selection.Cells.CountLarge;
-                } else if (selection.Cells && typeof selection.Cells.Count !== 'undefined') {
-                    selectionCellCount = selection.Cells.Count;
-                }
-            } catch (e) {
-                console.warn("获取 selection.Cells.Count 失败:", e);
-            }
-            
-            if (selectionCellCount > 1) {
-                useUserSelection = true;
-            }
-        }
-
-        if (useUserSelection) {
-            targetRange = selection;
-        } else {
-            // 如果用户选择的单元格数不大于1，或者选择无效，则使用 UsedRange
-            if (usedRange && typeof usedRange.Address !== 'undefined') {
-                 // 确保 UsedRange 至少有一个单元格，避免空表或完全清除的表格导致 UsedRange.Cells.Count 为0或异常
-                let usedRangeCellCount = 0;
-                try {
-                    if (typeof usedRange.CountLarge !== 'undefined') {
-                        usedRangeCellCount = usedRange.CountLarge;
-                    } else if (typeof usedRange.Count !== 'undefined') {
-                        usedRangeCellCount = usedRange.Count;
-                    } else if (usedRange.Cells && typeof usedRange.Cells.CountLarge !== 'undefined') {
-                        usedRangeCellCount = usedRange.Cells.CountLarge;
-                    } else if (usedRange.Cells && typeof usedRange.Cells.Count !== 'undefined') {
-                        usedRangeCellCount = usedRange.Cells.Count;
-                    }
-                } catch (e) {
-                     console.warn("获取 usedRange.Cells.Count 失败:", e);
-                }
-
-                if (usedRangeCellCount > 0) {
-                    targetRange = usedRange;
-                }
-            }
-        }
-
-        if (!targetRange) {
-            console.warn("无法确定有效的数据区域。");
-            return "";
-        }
-
-        let dataValues = []; // 初始化为空数组
-        try {
-            const rowCount = targetRange.Rows.Count;
-            const colCount = targetRange.Columns.Count;
-
-            if (rowCount === 0 || colCount === 0) {
-                console.warn("目标区域的行数或列数为0。");
-                return ""; // 如果区域无效或为空，则返回空字符串
-            }
-
-            for (let r = 1; r <= rowCount; r++) {
-                const rowData = [];
-                for (let c = 1; c <= colCount; c++) {
-                    let cellText = '';
-                    try {
-                        // targetRange.Item(r, c) 返回的是相对于 targetRange 左上角的单元格对象
-                        const cell = targetRange.Item(r, c);
-                        if (cell) {
-                            // 优先尝试 Text 属性，它通常能更好地处理合并单元格的显示值
-                            if (typeof cell.Text !== 'undefined') {
-                                cellText = (typeof cell.Text === 'function') ? cell.Text() : cell.Text;
-                            } else if (typeof cell.Value2 !== 'undefined') { // 备选 Value2
-                                let cellVal = (typeof cell.Value2 === 'function') ? cell.Value2() : cell.Value2;
-                                cellText = (cellVal === null || cellVal === undefined) ? "" : String(cellVal);
-                            } else if (typeof cell.Value !== 'undefined') { // 备选 Value
-                                let cellVal = (typeof cell.Value === 'function') ? cell.Value() : cell.Value;
-                                cellText = (cellVal === null || cellVal === undefined) ? "" : String(cellVal);
-                            }
-                        }
-                    } catch (cellError) {
-                        console.warn(`读取单元格 (行:${r}, 列:${c} 相对于区域左上角) 文本失败:`, cellError);
-                        cellText = ""; // 出错时默认为空字符串
-                    }
-                    rowData.push(cellText === null || cellText === undefined ? "" : String(cellText));
-                }
-                dataValues.push(rowData);
-            }
-            
-            if (dataValues.length === 0) { // 如果遍历后仍然是空数组
-                 console.warn("遍历读取后 dataValues 为空。");
-                 return "";
-            }
-
-        } catch (e) {
-            console.error("遍历读取区域数据失败:", e);
-            return ""; // 读取失败
-        }
-
-        if (dataValues === null || typeof dataValues === 'undefined' || dataValues.length === 0) {
-            // 区域为空或读取的值是 null/undefined
-            return "";
-        }
-        
-        let formattedDataValues;
-        if (!Array.isArray(dataValues)) {
-            // 单个单元格的情况
-            formattedDataValues = [[dataValues]];
-        } else if (dataValues.length > 0 && !Array.isArray(dataValues[0])) {
-            // Range.Value() 返回一维数组 (例如单行或单列选择)
-            if (targetRange.Rows.Count === 1 && targetRange.Columns.Count > 0) { // 单行
-                formattedDataValues = [dataValues];
-            } else if (targetRange.Columns.Count === 1 && targetRange.Rows.Count > 0) { // 单列
-                formattedDataValues = dataValues.map(cell => [cell]);
-            } else { // 无法确定具体是单行还是单列，或者就是单个值被包装成了一维数组
-                 formattedDataValues = [dataValues]; // 默认按单行处理
-            }
-        } else if (dataValues.length === 0) {
-            // 空数组
-            return "";
-        }
-         else {
-            // 本身就是二维数组
-            formattedDataValues = dataValues;
-        }
-        console.log("formattedDataValues:")
-        console.log(formattedDataValues)
-        return formatTableDataForAI(formattedDataValues);
-    } catch (error) {
-        console.error('获取表格上下文数据失败:', error);
-        return "";
-    }
-}
-
-// 调试版本的数据获取函数
-function getTableDataDebug(sheet, range) {
-    try {
-        if (!sheet) {
-            sheet = window.Application.ActiveSheet;
-        }
-
-        if (!range) {
-            // 获取已使用的区域
-            const usedRange = sheet.UsedRange;
-            if (!usedRange) return null;
-
-            const rowCount = usedRange.Rows.Count;
-            const colCount = usedRange.Columns.Count;
-
-            // 如果只有一个单元格，直接获取值
-            if (rowCount === 1 && colCount === 1) {
-                const cell = sheet.Cells.Item(1, 1);
-                const cellValue = getCellValue(cell);
-                return [[cellValue]];
-            }
-
-            // 构建范围字符串
-            const endCol = String.fromCharCode(64 + colCount);
-            range = `A1:${endCol}${rowCount}`;
-        }
-
-        // 尝试使用原始的Range.Value方法
-        try {
-            const rangeObj = sheet.Range(range);
-            const values = rangeObj.Value;
-
-            if (Array.isArray(values)) {
-                return values;
-            } else if (values !== null && values !== undefined && typeof values !== 'function') {
-                return [[values]];
-            }
-        } catch (rangeError) {
-            // Range.Value方法失败，使用逐个获取
-        }
-
-        // 如果Range.Value失败，使用逐个获取的方法
-        const result = getTableData(sheet, range);
-        return result;
-
-    } catch (error) {
-        console.error('获取表格数据失败:', error);
-        return null;
-    }
 }
 
 function GetUrlPath() {
@@ -555,11 +466,7 @@ export default{
     GetRouterHash,
     getTableData,
     setTableData,
-    setTableDataRowByRow,
-    setTableDataCellByCell,
-    formatTableDataForAI, // 已修改为Markdown格式
-    getTableContextDataAsMarkdown, // 新增函数
+    getTableContextData,
     getCellValue,
     columnLetterToNumber,
-    getTableDataDebug
 }

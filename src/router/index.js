@@ -13,7 +13,7 @@ const router = createRouter({
       path: '/ai-chat',
       name: 'AI对话助手',
       component: () => import('../components/AIChatPanel.vue')
-    }
+    },
   ]
 })
 

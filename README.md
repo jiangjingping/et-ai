@@ -157,21 +157,56 @@ npm run build
 *   **持久化:** 所有配置都使用WPS的 `PluginStorage` (如果可用) 或浏览器的 `localStorage` 进行持久化。
 *   **交互:** `LLMConfigPanel.vue` 提供UI与LLM配置进行交互。`aiService.js` 从 `appConfigManager` 获取当前激活的LLM配置用于API调用。
 
-### 6.2 AI聊天交互
+### 6.2 AI聊天与数据分析统一工作流
 
-1.  **启动:** 用户点击WPS Ribbon上的 "AI对话助手" 按钮。
-2.  **面板加载:** `ribbon.js` 中的 `OnAction` 回调触发 `aiChatManager.js` 的 `toggleChatPanel()` 方法。
-3.  `aiChatManager.js` 创建或显示一个WPS任务窗格，该窗格加载 `index.html`，并通过Vue Router导航到 `/ai-chat`，渲染 `AIChatPanel.vue`。
-4.  **用户输入:** 用户在 `AIChatPanel.vue` 中输入问题。
-5.  **表格数据引用 (可选):** 如果用户激活了 "引用表格" 功能，`AIChatPanel.vue` 会调用 `util.js` 中的 `getTableContextDataAsMarkdown()` 获取当前表格数据，并将其格式化为Markdown。
-6.  **API请求:** `AIChatPanel.vue` 将用户问题（可能附带表格Markdown数据）和系统提示词发送给 `aiService.js`。
-7.  `aiService.js` 从 `appConfigManager.js` 获取当前LLM配置，然后调用 `callQwenAPIStream()` (流式) 或 `callQwenAPI()` (非流式) 向LLM API发送请求。
-8.  **AI响应:**
-    *   流式响应通过 `onChunk` 回调逐步更新 `AIChatPanel.vue` 中的消息显示。
-    *   最终响应在 `onComplete` 回调中处理。
-9.  **内容渲染:**
-    *   AI返回的文本内容（通常是Markdown格式）由 `markdownRenderer.js` 转换为HTML，并在聊天界面显示。
-    *   如果AI响应中包含ECharts的JSON配置 (包裹在 \`\`\`json ... \`\`\` 中)，`AIChatPanel.vue` 会提取该JSON，并传递给 `ChartDisplay.vue` 组件进行图表渲染。
+本项目将标准的AI聊天与强大的数据分析智能体无缝融合在同一个聊天界面中，提供统一、智能的交互体验。
+
+1.  **启动与数据引用**: 用户在WPS中打开AI对话助手。通过点击“引用表格”按钮，将当前表格的选定区域或已使用区域数据加载到对话的上下文中。
+2.  **意图识别**: 用户输入指令后，系统会进行简单的关键词判断（如“分析”、“图表”、“趋势”等）。
+    *   **若为普通聊天**: 执行标准的问答流程。
+    *   **若为数据分析请求**: 激活数据分析智能体。
+3.  **智能体工作流 (ReAct模式)**:
+    *   **数据准备**: `AIChatPanel.vue` 调用 `util.js` 中的 `getTableContextData(true)` 获取原始JSON格式的表格数据。
+    *   **启动智能体**: `AIChatPanel.vue` 实例化 `DataAnalysisAgent` 并调用其 `analyze` 方法，传入用户指令和原始数据。
+    *   **循环分析**: `DataAnalysisAgent` 开始执行其核心的“思考-编码-执行”循环：
+        1.  **思考 (Reason)**: `DataAnalysisAgent` 获取 `CodeExecutor` (Web Worker) 中的当前环境状态（如已加载的DataFrame信息），结合对话历史，构建一个详细的系统提示词（Prompt）发送给大语言模型（LLM）。
+        2.  **规划 (Plan)**: LLM 返回一个包含下一步行动规划和JavaScript代码的YAML格式响应。
+        3.  **行动 (Act)**: `DataAnalysisAgent` 解析响应，并将JS代码发送给 `CodeExecutor`。
+        4.  **执行**: `CodeExecutor` 在其隔离的Web Worker环境中安全地执行代码（使用Danfo.js进行数据处理）。
+        5.  **结果反馈**: Worker将执行结果（如计算出的统计值，或用于生成图表的ECharts JSON配置对象）返回给`DataAnalysisAgent`。
+        6.  **UI更新与循环**: `DataAnalysisAgent` 将中间结果（如ECharts配置）实时推送给 `AIChatPanel.vue` 进行渲染，并将执行反馈加入对话历史，然后开始下一轮循环，直到分析任务完成。
+    *   **报告生成**: 所有分析步骤完成后，`DataAnalysisAgent` 会要求LLM根据全部分析过程生成一份最终的Markdown报告。
+4.  **结果呈现**:
+    *   **中间结果**: 在分析的每一轮，如果生成了图表配置，`AIChatPanel.vue` 会立刻使用ECharts组件将其渲染为交互式图表，展示在当前对话中。
+    *   **最终结果**: 最终的Markdown分析报告会被格式化后，完整地显示在AI的最后一条消息中。
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant ChatPanel as AIChatPanel.vue
+    participant Agent as DataAnalysisAgent.js
+    participant Worker as CodeExecutor (Web Worker)
+    participant LLM as 大语言模型
+
+    User->>ChatPanel: 点击“引用表格”并输入分析指令
+    ChatPanel->>ChatPanel: 识别为分析任务
+    ChatPanel->>Agent: 调用 analyze(userInput, tableData)
+    
+    loop 多轮分析循环
+        Agent->>Worker: 获取环境上下文
+        Agent->>LLM: 思考: 发送Prompt
+        LLM->>Agent: 规划: 返回含代码的YAML
+        Agent->>Worker: 行动: 执行代码
+        Worker->>Agent: 返回结果(ECharts JSON)
+        Agent->>ChatPanel: 推送中间结果
+        ChatPanel->>User: 渲染交互式图表
+    end
+
+    Agent->>LLM: 请求生成最终报告
+    LLM->>Agent: 返回Markdown报告
+    Agent->>ChatPanel: 返回最终报告
+    ChatPanel->>User: 展示完整报告
+```
 
 ### 6.3 WPS Office集成
 

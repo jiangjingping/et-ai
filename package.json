@@ -14,8 +14,12 @@
 	"dependencies": {
 		"axios": "^1.7.2",
 		"core-js": "^3.37.1",
+		"danfojs": "^1.2.0",
 		"echarts": "^5.6.0",
+		"marked": "^15.0.12",
+		"papaparse": "^5.5.3",
 		"vue": "^3.4.29",
+		"vue-echarts": "^7.0.3",
 		"vue-router": "^4.3.3"
 	},
 	"devDependencies": {
