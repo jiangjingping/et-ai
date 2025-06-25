@@ -80,14 +80,6 @@
                 <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
               </div>
               <div class="message-text" v-html="formatMessage(message.content)"></div>
-              <div v-if="message.type === 'ai' && message.chartOptions && message.chartOptions.length > 0" class="charts-wrapper">
-                <ChartDisplay 
-                  v-for="(chartOpt, chartIndex) in message.chartOptions" 
-                  :key="`chart-${index}-${chartIndex}`" 
-                  :option="chartOpt" 
-                  class="ai-chart-display-item"
-                />
-              </div>
               <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
             </div>
           </div>
@@ -115,38 +107,6 @@
             ref="quickPromptsPanelRef" 
           >
             <div class="quick-prompts-content-wrapper">
-              <!-- Analysis Prompts -->
-              <div v-if="analysisPrompts.length > 0" class="quick-prompt-category">
-                <h5 class="prompt-category-title">🔍 数据洞察</h5>
-                <div class="quick-prompts-container">
-                  <button 
-                    v-for="(prompt, index) in analysisPrompts" 
-                    :key="`analysis-${index}`" 
-                    @click="handleQuickPromptClick(prompt)" 
-                    class="quick-prompt-btn analysis-btn"
-                    :disabled="isLoading || isLoadingDynamicPrompts"
-                    :title="prompt">
-                    {{ prompt }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Visualization Prompts -->
-              <div v-if="visualizationPrompts.length > 0" class="quick-prompt-category">
-                <h5 class="prompt-category-title">📊 图表生成</h5>
-                <div class="quick-prompts-container">
-                  <button 
-                    v-for="(prompt, index) in visualizationPrompts" 
-                    :key="`viz-${index}`" 
-                    @click="handleQuickPromptClick(prompt)" 
-                    class="quick-prompt-btn viz-btn"
-                    :disabled="isLoading || isLoadingDynamicPrompts"
-                    :title="prompt">
-                    {{ prompt }}
-                  </button>
-                </div>
-              </div>
-
               <!-- Dynamic Prompts (only if context attached) -->
               <div v-if="isTableContextAttached" class="quick-prompt-category">
                 <h5 class="prompt-category-title">💡 智能建议 (基于当前表格)</h5>
@@ -220,14 +180,12 @@ import aiService from './js/aiService.js'
 import utilFunctions from './js/util.js'
 import { renderMarkdown } from './js/markdownRenderer.js'
 import LLMConfigPanel from './LLMConfigPanel.vue'
-import ChartDisplay from './ChartDisplay.vue' 
 import appConfigManager from './js/appConfigManager.js'
 
 export default {
   name: 'AIChatPanel',
   components: {
-    LLMConfigPanel,
-    ChartDisplay 
+    LLMConfigPanel
   },
   setup() {
     const hasApiKey = ref(false)
@@ -240,23 +198,6 @@ export default {
     const isTableContextAttached = ref(false) 
 
     const isLoadingDynamicPrompts = ref(false);
-    const defaultAnalysisPrompts = Object.freeze([
-      "总结一下当前引用的表格",
-      "解释这份数据的主要特点",
-      "基于数据分析趋势",
-      "找出数据中的异常值",
-      "数据质量如何？"
-    ]);
-    const defaultVisualizationPrompts = Object.freeze([
-      "帮我把这些数据可视化",
-      "用折线图展示数据",
-      "用饼图显示各部分占比",
-      "创建柱状图比较数据",
-      "生成散点图查看关联"
-    ]);
-
-    const analysisPrompts = ref([...defaultAnalysisPrompts]);
-    const visualizationPrompts = ref([...defaultVisualizationPrompts]);
     const dynamicPrompts = ref([]);
 
     const isQuickPromptsPanelExpanded = ref(false);
@@ -381,13 +322,7 @@ export default {
       if (isLoading.value || isLoadingDynamicPrompts.value) return; 
       
       if (!isTableContextAttached.value) {
-        const requiresDataContext = dynamicPrompts.value.includes(promptText) || 
-                                      analysisPrompts.value.includes(promptText) && (promptText.includes("表格") || promptText.includes("数据")) ||
-                                      visualizationPrompts.value.includes(promptText);
-
-        if (requiresDataContext) {
-            addSystemMessage('💡 此快捷指令可能需要引用表格数据。请先点击“引用表格”。');
-        }
+        addSystemMessage('💡 此快捷指令需要引用表格数据。请先点击“引用表格”。');
       }
       
       inputMessage.value = promptText;
@@ -554,36 +489,7 @@ export default {
         }
       }
       
-      const chartKeywords = [
-        '图表', '可视化', '柱状图', '折线图', '饼图', '趋势', '分布', '占比', '生成图', '画图',
-        '条形图', '散点图', '面积图', '雷达图', '热力图', 'K线图', '箱线图', 
-        '绘制', '展现', '统计图' 
-      ];
-      const isChartRequest = chartKeywords.some(keyword => userMessageContent.toLowerCase().includes(keyword.toLowerCase()));
       let finalSystemPrompt = '你是一个友好、专业的AI助手，可以帮助用户解答各种问题，提供建议和帮助。请用中文回答。';
-
-      if (isChartRequest && actualTableDataUsed) { 
-        finalSystemPrompt = `你是一个数据可视化助手。用户提供了Markdown格式的表格数据和图表生成请求。
-请执行以下操作：
-1. 分析数据和用户要求。
-2. 如果用户没有明确指定图表类型，请根据数据特征判断最适合的ECharts图表类型（例如：折线图、柱状图、饼图、散点图等）。
-3. 生成一个完整的、可以直接在ECharts中使用的option JSON对象。确保JSON格式正确无误。
-4. 在你的文字回复中，可以简要说明你选择的图表类型（如果是由你推荐的）以及图表所展示的主要内容。
-请将ECharts option JSON对象包裹在 \`\`\`json 和 \`\`\` 之间。
-**重要：生成的JSON对象必须是纯粹的数据结构，绝对不能包含任何JavaScript函数、回调函数或任何形式的可执行代码。如果某个配置项（如tooltip的formatter、label的formatter等）通常使用函数，请尝试使用ECharts支持的字符串模板变量，或者直接省略该formatter配置，以确保输出是严格合法的JSON。**
-例如：
-这是您要求的图表配置：
-\`\`\`json
-{
-  "title": {"text": "示例图表"},
-  "tooltip": {"trigger": "axis"},
-  "xAxis": {"type": "category", "data": ["A", "B", "C"]},
-  "yAxis": {"type": "value"},
-  "series": [{"data": [10, 20, 30], "type": "bar", "name": "系列1"}]
-}
-\`\`\`
-如果无法根据提供的数据或用户请求生成有效的、不含函数的图表配置，请明确说明原因，不要生成不完整的或错误的JSON。`;
-      }
 
       const aiMessageIndex = messages.value.length
       messages.value.push({
@@ -591,8 +497,7 @@ export default {
         content: '',
         time: new Date().toLocaleTimeString(),
         isStreaming: true,
-        fullContent: '',
-        chartOption: null 
+        fullContent: ''
       })
       scrollToBottom()
 
@@ -612,16 +517,6 @@ export default {
                 messages.value[aiMessageIndex].content = finalContent;
                 messages.value[aiMessageIndex].fullContent = finalContent;
                 messages.value[aiMessageIndex].isStreaming = false;
-
-                if (isChartRequest) { 
-                    const extractedChartOptions = extractJsonFromText(finalContent); 
-                    if (extractedChartOptions && extractedChartOptions.length > 0) {
-                        messages.value[aiMessageIndex].chartOptions = extractedChartOptions;
-                        console.log('[AIChatPanel] 图表配置已提取并存入消息对象:', JSON.parse(JSON.stringify(messages.value[aiMessageIndex].chartOptions)));
-                    } else {
-                        console.log('[AIChatPanel] onComplete: 未提取到图表配置或配置为空数组。');
-                    }
-                }
               }
               isLoading.value = false;
               resolve(finalContent);
@@ -676,27 +571,6 @@ export default {
       return renderMarkdown(content);
     }
 
-    const extractJsonFromText = (text) => {
-        const options = []; 
-        if (!text) return options; 
-
-        const regex = /```json\s*([\s\S]*?)\s*```/g; 
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-            if (match[1]) { 
-                try {
-                    const parsedOption = JSON.parse(match[1]);
-                    console.log('[AIChatPanel] extractJsonFromText: 单个图表JSON解析成功:', JSON.parse(JSON.stringify(parsedOption)));
-                    options.push(parsedOption);
-                } catch (e) {
-                    console.error("[AIChatPanel] extractJsonFromText: 解析图表JSON失败:", e, "\n原始JSON字符串:", match[1]);
-                    addSystemMessage("⚠️ AI返回的部分图表配置解析失败。");
-                }
-            }
-        }
-        return options; 
-    }
-
     onMounted(() => {
       checkApiKeyStatus(); 
       expandQuickPromptsPanel(true); 
@@ -720,8 +594,6 @@ export default {
       showConfigPanel,
       isTableContextAttached,
       toggleTableContext,
-      analysisPrompts,
-      visualizationPrompts,
       dynamicPrompts,
       isQuickPromptsPanelExpanded, 
       expandQuickPromptsPanel,     
