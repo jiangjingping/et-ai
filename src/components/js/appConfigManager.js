@@ -14,7 +14,7 @@ class AppConfigManager {
                 provider: 'Alibaba',
                 baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 model: 'qwen-plus',
-                apiKey: 'sk-a611164dce354645b84ccad97c21fc7c', // User wants to keep this
+                apiKey: import.meta.env.VITE_QWEN_API_KEY || '',
                 description: '阿里云通义千问Plus模型，能力均衡，推理效果、成本和速度介于通义千问-Max和通义千问-Turbo之间，适合中等复杂任务',
                 isPreset: true,
                 maxTokens: 8000,
@@ -27,7 +27,7 @@ class AppConfigManager {
                 provider: 'Alibaba',
                 baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 model: 'qwen-plus-latest',
-                apiKey: 'sk-a611164dce354645b84ccad97c21fc7c', // User wants to keep this
+                apiKey: import.meta.env.VITE_QWEN_API_KEY || '',
                 description: '阿里云通义千问Plus模型最新版，模型支持思考模式和非思考模式',
                 isPreset: true,
                 maxTokens: 16000,
@@ -40,7 +40,7 @@ class AppConfigManager {
                 provider: 'Alibaba',
                 baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 model: 'qwen-max',
-                apiKey: 'sk-a611164dce354645b84ccad97c21fc7c',
+                apiKey: import.meta.env.VITE_QWEN_API_KEY || '',
                 description: '阿里云通义千问max模型，适合复杂任务，能力最强',
                 isPreset: true,
                 maxTokens: 16000,
@@ -53,7 +53,7 @@ class AppConfigManager {
                 provider: 'Alibaba',
                 baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 model: 'qwen-max-latest',
-                apiKey: 'sk-a611164dce354645b84ccad97c21fc7c', // User wants to keep this
+                apiKey: import.meta.env.VITE_QWEN_API_KEY || '',
                 description: '阿里云通义千问max模型最新版',
                 isPreset: true,
                 maxTokens: 8000,

@@ -39,7 +39,6 @@
           :is-loading="isLoading"
           :is-loading-dynamic-prompts="isLoadingDynamicPrompts"
           :is-table-context-attached="isTableContextAttached"
-          :table-q-a="tableQA"
           :data-insight="dataInsight"
           :data-visualization="dataVisualization"
           :smart-suggestions="smartSuggestions"
@@ -91,7 +90,6 @@ export default {
 
     const {
       isLoadingDynamicPrompts,
-      tableQA,
       dataInsight,
       dataVisualization,
       smartSuggestions,
@@ -178,7 +176,6 @@ export default {
       showConfigPanel,
       isTableContextAttached,
       toggleTableContext,
-      tableQA,
       dataInsight,
       dataVisualization,
       smartSuggestions,

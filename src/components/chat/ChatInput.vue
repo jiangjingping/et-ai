@@ -24,22 +24,6 @@
           </div>
         </div>
 
-        <!-- 💬 表格问答 -->
-        <div v-if="tableQA.length > 0" class="quick-prompt-category">
-          <h5 class="prompt-category-title">💬 表格问答</h5>
-          <div class="quick-prompts-container">
-            <button
-              v-for="(prompt, index) in tableQA"
-              :key="`table-${index}`"
-              @click="handleQuickPromptClick(prompt)"
-              class="quick-prompt-btn table-btn"
-              :disabled="isLoading || isLoadingDynamicPrompts"
-              :title="prompt">
-              {{ prompt }}
-            </button>
-          </div>
-        </div>
-
         <!-- 💡 数据洞察 -->
         <div v-if="dataInsight.length > 0" class="quick-prompt-category">
           <h5 class="prompt-category-title">💡 数据洞察</h5>
@@ -151,10 +135,6 @@ export default {
     isLoadingDynamicPrompts: Boolean,
     isTableContextAttached: Boolean,
     generalQA: {
-      type: Array,
-      default: () => [],
-    },
-    tableQA: {
       type: Array,
       default: () => [],
     },

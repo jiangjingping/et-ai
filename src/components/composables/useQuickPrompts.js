@@ -14,20 +14,12 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
     "数据清洗的重要性是什么？"
   ]);
 
-  // 💬 表格快速问答
-  const tableQAPrompts = Object.freeze([
-    "这个表格有多少行数据？",
-    "总结一下表格的主要内容",
-    "表格中有哪些列？",
-    "找出表格中的最大值和最小值"
-  ]);
-
   // 💡 数据洞察
   const dataInsightPrompts = Object.freeze([
+    "总结一下表格内容",
+    "这个表格数据有什么特点？",
     "分析数据的相关性",
-    "找出最重要的数据指标",
-    "数据中是否存在异常值？",
-    "预测数据的未来趋势"
+    "找出最重要的数据指标"
   ]);
 
   // 📊 数据可视化
@@ -41,7 +33,6 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
   // ✨ 智能建议 (动态生成)
   const smartSuggestions = ref([]);
 
-  const tableQA = ref([...tableQAPrompts]);
   const dataInsight = ref([...dataInsightPrompts]);
   const dataVisualization = ref([...dataVisualizationPrompts]);
 
@@ -108,7 +99,6 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
   const handleQuickPromptClick = (promptText) => {
     if (!isTableContextAttached.value) {
       const requiresDataContext = smartSuggestions.value.includes(promptText) ||
-                                    tableQA.value.includes(promptText) ||
                                     dataInsight.value.includes(promptText) ||
                                     dataVisualization.value.includes(promptText);
 
@@ -136,7 +126,6 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
   return {
     isLoadingDynamicPrompts,
     isTableContextAttached,
-    tableQA,
     dataInsight,
     dataVisualization,
     smartSuggestions,
