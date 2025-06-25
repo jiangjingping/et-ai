@@ -31,10 +31,12 @@ function getTableData(sheet, range) {
         }
 
         // 解析范围并逐个获取单元格值
-        const rangeMatch = range.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+        console.log("Parsing range address:", range);
+        // Regex to handle optional '$' signs, e.g., $A$1:$L$91
+        const rangeMatch = range.match(/\$?([A-Z]+)\$?(\d+):\S?([A-Z]+)\$?(\d+)/);
         if (!rangeMatch) {
             // 如果是单个单元格
-            const singleCellMatch = range.match(/([A-Z]+)(\d+)/);
+            const singleCellMatch = range.match(/\$?([A-Z]+)\$?(\d+)/);
             if (singleCellMatch) {
                 const col = columnLetterToNumber(singleCellMatch[1]);
                 const row = parseInt(singleCellMatch[2]);
@@ -316,6 +318,53 @@ function formatTableDataForAI(data) {
     return markdownTable;
 }
 
+function getTableContextDataAsJson() {
+    try {
+        const app = wps.EtApplication();
+        if (!app) {
+            console.error("WPS Application object is not available.");
+            return null;
+        }
+        const activeSheet = app.ActiveSheet;
+        if (!activeSheet) {
+            console.warn("No active sheet found.");
+            return null;
+        }
+
+        const usedRange = activeSheet.UsedRange;
+        if (!usedRange) {
+            console.warn("UsedRange is not available.");
+            return null;
+        }
+
+        const address = typeof usedRange.Address === 'function' ? usedRange.Address() : usedRange.Address;
+        const data = getTableData(activeSheet, address);
+        if (!data || data.length < 1) {
+            // Requires at least a header row.
+            console.warn("getTableContextDataAsJson: Not enough data, requires at least a header row.");
+            return null;
+        }
+
+        const headers = data[0];
+        const jsonData = [];
+
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            const rowObject = {};
+            for (let j = 0; j < headers.length; j++) {
+                rowObject[headers[j]] = row[j];
+            }
+            jsonData.push(rowObject);
+        }
+
+        return jsonData;
+
+    } catch (error) {
+        console.error('获取表格上下文JSON数据失败:', error);
+        return null;
+    }
+}
+
 // 获取上下文表格数据并格式化为Markdown
 function getTableContextDataAsMarkdown() {
     try {
@@ -558,7 +607,8 @@ export default{
     setTableDataRowByRow,
     setTableDataCellByCell,
     formatTableDataForAI, // 已修改为Markdown格式
-    getTableContextDataAsMarkdown, // 新增函数
+    getTableContextDataAsMarkdown,
+    getTableContextDataAsJson, // 新增函数
     getCellValue,
     columnLetterToNumber,
     getTableDataDebug

@@ -79,7 +79,8 @@
                 <span class="time">{{ message.time }}</span>
                 <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
               </div>
-              <div class="message-text" v-html="formatMessage(message.content)"></div>
+              <div class="message-text" v-if="!message.plotSpec" v-html="formatMessage(message.content)"></div>
+              <div v-if="message.plotSpec" :ref="el => { if (message.plotSpec) plotContainer = el; }" class="plot-container"></div>
               <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
             </div>
           </div>
@@ -153,6 +154,9 @@
               <button @click="toggleTableContext" class="attach-btn" :title="isTableContextAttached ? '清除引用的表格数据' : '引用当前表格数据'">
                 {{ isTableContextAttached ? '清除引用' : '引用表格' }}
               </button>
+              <button @click="startDataAnalysis" class="analysis-btn" title="Run Data Analysis Agent">
+                分析代理
+              </button>
             </div>
             <div class="actions-toolbar-right">
               <button v-if="isLoading" @click="stopProcessing" class="stop-btn" title="停止当前处理">
@@ -176,11 +180,13 @@
 
 <script>
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import Plotly from 'plotly.js-dist-min';
 import aiService from './js/aiService.js'
 import utilFunctions from './js/util.js'
 import { renderMarkdown } from './js/markdownRenderer.js'
 import LLMConfigPanel from './LLMConfigPanel.vue'
 import appConfigManager from './js/appConfigManager.js'
+import { JsDataAnalysisAgent } from '../js-data-analysis-agent/core/JsDataAnalysisAgent.js'
 
 export default {
   name: 'AIChatPanel',
@@ -205,6 +211,7 @@ export default {
     const isMouseOverQuickPromptsArea = ref(false); 
     const messageInputRef = ref(null);
     const quickPromptsPanelRef = ref(null);
+    const plotContainer = ref(null);
 
     const onMessageInputFocus = () => {
       expandQuickPromptsPanel(true); 
@@ -328,6 +335,73 @@ export default {
       inputMessage.value = promptText;
       sendMessage();
       setTimeout(() => collapseQuickPromptsPanel(), 100); 
+    };
+
+    const startDataAnalysis = async () => {
+      if (!inputMessage.value.trim()) {
+        addSystemMessage('⚠️ Please enter your analysis request in the input box.');
+        return;
+      }
+      if (!isTableContextAttached.value) {
+        addSystemMessage('⚠️ Please attach table data first using the "引用表格" button.');
+        return;
+      }
+
+      const userQuery = inputMessage.value.trim();
+      addUserMessage(userQuery);
+      inputMessage.value = '';
+      isLoading.value = true;
+
+      addSystemMessage('🚀 Starting Data Analysis Agent...');
+      
+      try {
+        const tableData = utilFunctions.getTableContextDataAsJson();
+        if (!tableData || tableData.length === 0) {
+          addSystemMessage('❌ Could not retrieve valid data from the table.');
+          isLoading.value = false;
+          return;
+        }
+
+        const agent = new JsDataAnalysisAgent();
+        const onProgress = (progress) => {
+          let content = `[${progress.type}] ${progress.content}`;
+          addSystemMessage(content);
+        };
+
+        const result = await agent.analyze(userQuery, tableData, onProgress);
+        
+        if (result.plotSpec) {
+            const message = {
+                type: 'ai',
+                content: 'Here is the plot you requested:',
+                time: new Date().toLocaleTimeString(),
+                plotSpec: result.plotSpec
+            };
+            messages.value.push(message);
+            
+            await nextTick(); 
+
+            const plotElement = plotContainer.value;
+            if (plotElement) {
+                Plotly.newPlot(plotElement, result.plotSpec.data, result.plotSpec.layout);
+            } else {
+                console.error("Plot container not found.");
+            }
+        } else {
+             messages.value.push({
+                type: 'ai',
+                content: `✅ ${result.report}`,
+                time: new Date().toLocaleTimeString()
+            });
+        }
+        scrollToBottom();
+
+      } catch (error) {
+        console.error("Data analysis agent failed:", error);
+        addSystemMessage(`❌ Data analysis failed: ${error.message}`);
+      } finally {
+        isLoading.value = false;
+      }
     };
 
     const hasStreamingMessage = computed(() => {
@@ -604,6 +678,8 @@ export default {
       messageInputRef, 
       onMessageInputFocus, 
       handleQuickPromptClick,
+      startDataAnalysis,
+      plotContainer,
       togglePanel,
       showApiKeyDialog,
       clearChat,
