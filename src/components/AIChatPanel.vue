@@ -39,11 +39,10 @@
           :is-loading="isLoading"
           :is-loading-dynamic-prompts="isLoadingDynamicPrompts"
           :is-table-context-attached="isTableContextAttached"
-          :general-q-a="generalQA"
           :table-q-a="tableQA"
-          :simple-chart="simpleChart"
-          :advanced-analytics="advancedAnalytics"
-          :dynamic-prompts="dynamicPrompts"
+          :data-insight="dataInsight"
+          :data-visualization="dataVisualization"
+          :smart-suggestions="smartSuggestions"
           @send-message="sendMessage"
           @stop-processing="stopProcessing"
           @toggle-table-context="toggleTableContext"
@@ -92,11 +91,10 @@ export default {
 
     const {
       isLoadingDynamicPrompts,
-      generalQA,
       tableQA,
-      simpleChart,
-      advancedAnalytics,
-      dynamicPrompts,
+      dataInsight,
+      dataVisualization,
+      smartSuggestions,
       handleQuickPromptClick,
       toggleTableContext,
       fetchAndSetDynamicQuickPrompts
@@ -180,11 +178,10 @@ export default {
       showConfigPanel,
       isTableContextAttached,
       toggleTableContext,
-      generalQA,
       tableQA,
-      simpleChart,
-      advancedAnalytics,
-      dynamicPrompts,
+      dataInsight,
+      dataVisualization,
+      smartSuggestions,
       handleQuickPromptClick,
       togglePanel,
       showApiKeyDialog,

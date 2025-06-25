@@ -14,38 +14,36 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
     "数据清洗的重要性是什么？"
   ]);
 
-  // 💬 表格问答指令 (table_qa)
+  // 💬 表格快速问答
   const tableQAPrompts = Object.freeze([
     "这个表格有多少行数据？",
     "总结一下表格的主要内容",
     "表格中有哪些列？",
-    "数据的时间范围是什么？",
     "找出表格中的最大值和最小值"
   ]);
 
-  // 📊 简易图表指令 (simple_chart)
-  const simpleChartPrompts = Object.freeze([
+  // 💡 数据洞察
+  const dataInsightPrompts = Object.freeze([
+    "分析数据的相关性",
+    "找出最重要的数据指标",
+    "数据中是否存在异常值？",
+    "预测数据的未来趋势"
+  ]);
+
+  // 📊 数据可视化
+  const dataVisualizationPrompts = Object.freeze([
     "制作一个柱状图",
     "画个折线图显示趋势",
     "生成饼图显示占比",
-    "创建散点图分析关系",
     "可视化这些数据"
   ]);
 
-  // 🔬 高级分析指令 (advanced_analytics)
-  const advancedAnalyticsPrompts = Object.freeze([
-    "分析数据的相关性",
-    "进行统计分析",
-    "数据聚类分析",
-    "预测数据趋势",
-    "计算各变量间的相关关系"
-  ]);
+  // ✨ 智能建议 (动态生成)
+  const smartSuggestions = ref([]);
 
-  const generalQA = ref([...generalQAPrompts]);
   const tableQA = ref([...tableQAPrompts]);
-  const simpleChart = ref([...simpleChartPrompts]);
-  const advancedAnalytics = ref([...advancedAnalyticsPrompts]);
-  const dynamicPrompts = ref([]);
+  const dataInsight = ref([...dataInsightPrompts]);
+  const dataVisualization = ref([...dataVisualizationPrompts]);
 
   const extractHeadersFromMarkdown = (markdownTable) => {
     if (!markdownTable || typeof markdownTable !== 'string') return null;
@@ -61,11 +59,11 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
 
   const fetchAndSetDynamicQuickPrompts = async () => {
     if (!isTableContextAttached.value) {
-      dynamicPrompts.value = [];
+      smartSuggestions.value = [];
       return;
     }
     isLoadingDynamicPrompts.value = true;
-    dynamicPrompts.value = [];
+    smartSuggestions.value = [];
 
     try {
       const tableMarkdown = utilFunctions.getTableContextDataAsMarkdown();
@@ -89,9 +87,9 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
       const suggestionsString = await aiService.callQwenAPI(promptForDynamicSuggestions, systemMessageForSuggestions);
 
       if (suggestionsString && suggestionsString.trim()) {
-        const suggestedPrompts = suggestionsString.split('\n').map(p => p.trim()).filter(p => p && p.length > 0 && p.length < 100).slice(0, 5);
+        const suggestedPrompts = suggestionsString.split('\n').map(p => p.trim()).filter(p => p && p.length > 0 && p.length < 100).slice(0, 6); // 增加到最多6个
         if (suggestedPrompts.length > 0) {
-          dynamicPrompts.value = suggestedPrompts;
+          smartSuggestions.value = suggestedPrompts;
           addSystemMessage('✅ 已更新智能建议。');
         } else {
           addSystemMessage('ℹ️ AI未能提供有效的智能建议。');
@@ -109,10 +107,10 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
 
   const handleQuickPromptClick = (promptText) => {
     if (!isTableContextAttached.value) {
-      const requiresDataContext = dynamicPrompts.value.includes(promptText) ||
-                                    tableQA.value.includes(promptText) && (promptText.includes("表格") || promptText.includes("数据")) ||
-                                    simpleChart.value.includes(promptText) ||
-                                    advancedAnalytics.value.includes(promptText);
+      const requiresDataContext = smartSuggestions.value.includes(promptText) ||
+                                    tableQA.value.includes(promptText) ||
+                                    dataInsight.value.includes(promptText) ||
+                                    dataVisualization.value.includes(promptText);
 
       if (requiresDataContext) {
           addSystemMessage('💡 此快捷指令可能需要引用表格数据。请先点击“引用表格”。');
@@ -126,7 +124,7 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
   const toggleTableContext = async () => {
     if (isTableContextAttached.value) {
       isTableContextAttached.value = false;
-      dynamicPrompts.value = [];
+      smartSuggestions.value = [];
       addSystemMessage('ℹ️ 已取消表格数据引用。下次发送将不包含表格数据。');
     } else {
       isTableContextAttached.value = true;
@@ -138,11 +136,10 @@ export function useQuickPrompts(inputMessage, isTableContextAttached, addSystemM
   return {
     isLoadingDynamicPrompts,
     isTableContextAttached,
-    generalQA,
     tableQA,
-    simpleChart,
-    advancedAnalytics,
-    dynamicPrompts,
+    dataInsight,
+    dataVisualization,
+    smartSuggestions,
     handleQuickPromptClick,
     toggleTableContext,
     fetchAndSetDynamicQuickPrompts,

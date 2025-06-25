@@ -40,29 +40,13 @@
           </div>
         </div>
 
-        <!-- 📊 简易图表 -->
-        <div v-if="simpleChart.length > 0" class="quick-prompt-category">
-          <h5 class="prompt-category-title">📊 简易图表</h5>
+        <!-- 💡 数据洞察 -->
+        <div v-if="dataInsight.length > 0" class="quick-prompt-category">
+          <h5 class="prompt-category-title">💡 数据洞察</h5>
           <div class="quick-prompts-container">
             <button
-              v-for="(prompt, index) in simpleChart"
-              :key="`chart-${index}`"
-              @click="handleQuickPromptClick(prompt)"
-              class="quick-prompt-btn chart-btn"
-              :disabled="isLoading || isLoadingDynamicPrompts"
-              :title="prompt">
-              {{ prompt }}
-            </button>
-          </div>
-        </div>
-
-        <!-- 🔬 高级分析 -->
-        <div v-if="advancedAnalytics.length > 0" class="quick-prompt-category">
-          <h5 class="prompt-category-title">🔬 高级分析</h5>
-          <div class="quick-prompts-container">
-            <button
-              v-for="(prompt, index) in advancedAnalytics"
-              :key="`advanced-${index}`"
+              v-for="(prompt, index) in dataInsight"
+              :key="`insight-${index}`"
               @click="handleQuickPromptClick(prompt)"
               class="quick-prompt-btn advanced-btn"
               :disabled="isLoading || isLoadingDynamicPrompts"
@@ -72,12 +56,28 @@
           </div>
         </div>
 
-        <!-- Dynamic Prompts (only if context attached) -->
+        <!-- 📊 数据可视化 -->
+        <div v-if="dataVisualization.length > 0" class="quick-prompt-category">
+          <h5 class="prompt-category-title">📊 数据可视化</h5>
+          <div class="quick-prompts-container">
+            <button
+              v-for="(prompt, index) in dataVisualization"
+              :key="`viz-${index}`"
+              @click="handleQuickPromptClick(prompt)"
+              class="quick-prompt-btn chart-btn"
+              :disabled="isLoading || isLoadingDynamicPrompts"
+              :title="prompt">
+              {{ prompt }}
+            </button>
+          </div>
+        </div>
+
+        <!-- ✨ 智能建议 -->
         <div v-if="isTableContextAttached" class="quick-prompt-category">
-          <h5 class="prompt-category-title">💡 智能建议 (基于当前表格)</h5>
+          <h5 class="prompt-category-title">✨ 智能建议 (基于当前表格)</h5>
           <div class="quick-prompts-container dynamic-prompts-container">
             <button 
-              v-for="(prompt, index) in dynamicPrompts" 
+              v-for="(prompt, index) in smartSuggestions" 
               :key="`dynamic-${index}`" 
               @click="handleQuickPromptClick(prompt)" 
               class="quick-prompt-btn dynamic-btn"
@@ -85,8 +85,8 @@
               :title="prompt">
               {{ prompt }}
             </button>
-            <span v-if="isLoadingDynamicPrompts && dynamicPrompts.length === 0" class="loading-dynamic-prompts">正在生成建议...</span>
-            <span v-if="!isLoadingDynamicPrompts && dynamicPrompts.length === 0 && isTableContextAttached" class="no-dynamic-prompts">暂无智能建议，可尝试通用指令。</span>
+            <span v-if="isLoadingDynamicPrompts && smartSuggestions.length === 0" class="loading-dynamic-prompts">正在生成建议...</span>
+            <span v-if="!isLoadingDynamicPrompts && smartSuggestions.length === 0 && isTableContextAttached" class="no-dynamic-prompts">暂无智能建议，可尝试通用指令。</span>
           </div>
         </div>
       </div>
@@ -158,15 +158,15 @@ export default {
       type: Array,
       default: () => [],
     },
-    simpleChart: {
+    dataInsight: {
       type: Array,
       default: () => [],
     },
-    advancedAnalytics: {
+    dataVisualization: {
       type: Array,
       default: () => [],
     },
-    dynamicPrompts: {
+    smartSuggestions: {
       type: Array,
       default: () => [],
     },
@@ -309,71 +309,22 @@ export default {
 }
 
 .quick-prompt-btn {
-  background-color: #e9ecef;
-  color: #495057;
-  border: 1px solid #ced4da;
-  padding: 6px 10px;
-  border-radius: 15px;
+  background-color: #f0f2f5; /* A light, neutral grey */
+  color: #333; /* Dark grey text for good contrast */
+  border: 1px solid #d9d9d9; /* A subtle border */
+  padding: 6px 12px;
+  border-radius: 16px; /* Fully rounded corners */
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   white-space: nowrap; 
 }
 
-.general-btn {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  color: white;
-  border: none;
-}
-
-.general-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3d8bfe 0%, #00d4fe 100%);
-  transform: translateY(-1px);
-}
-
-.table-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-}
-
-.table-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-  transform: translateY(-1px);
-}
-
-.chart-btn {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
-  border: none;
-}
-
-.chart-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #ee82e9 0%, #f3455a 100%);
-  transform: translateY(-1px);
-}
-
-.advanced-btn {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-  color: white;
-  border: none;
-}
-
-.advanced-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #f85a88 0%, #fed12e 100%);
-  transform: translateY(-1px);
-}
-.dynamic-btn {
-  background-color: #e8f5e9; 
-  border-color: #a5d6a7;
-}
-.dynamic-btn:hover {
-  background-color: #c8e6c9;
-}
-
-.quick-prompt-btn:hover {
-  background-color: #dee2e6;
-  border-color: #adb5bd;
+.quick-prompt-btn:hover:not(:disabled) {
+  background-color: #e6e8eb; /* Slightly darker on hover */
+  border-color: #c0c0c0;
+  transform: translateY(-1px); /* Subtle lift effect */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .quick-prompt-btn:disabled {
