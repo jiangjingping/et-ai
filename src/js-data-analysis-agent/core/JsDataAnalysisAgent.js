@@ -23,57 +23,46 @@ export class JsDataAnalysisAgent {
 
         for (let i = 0; i < 5; i++) { // Limit to 5 rounds for now
             const currentRound = i + 1;
-            console.log(`%cAGENT: Round ${currentRound} Start`, 'color: blue; font-weight: bold;');
-            onProgress({ type: 'llm_start', content: `Round ${currentRound}: Thinking...` });
+            onProgress({ type: 'llm_start', round: currentRound, content: `Round ${currentRound}: Thinking...` });
 
             const prompt = this.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n\n');
             const systemPrompt = getSystemPrompt();
             
-            console.log("AGENT: Calling LLM with prompt:", { systemPrompt, prompt });
             const llmResponse = await aiService.callQwenAPI(prompt, systemPrompt);
-            console.log("AGENT: Received LLM response:", llmResponse);
             this.conversationHistory.push({ role: 'assistant', content: llmResponse });
             
             const parsedResponse = parseYaml(llmResponse);
-            console.log("AGENT: Parsed YAML response:", parsedResponse);
+            onProgress({ type: 'llm_thought', round: currentRound, content: parsedResponse.thought });
 
             if (!parsedResponse || !parsedResponse.action) {
-                console.error("AGENT: Invalid or unparsable response from LLM.");
-                onProgress({ type: 'error', content: 'Invalid response from LLM.' });
+                onProgress({ type: 'error', round: currentRound, content: 'Invalid response from LLM.' });
                 break;
             }
 
             if (parsedResponse.action === 'generate_code') {
-                onProgress({ type: 'code_start', content: 'Executing code...' });
                 const codeToExecute = parsedResponse.code;
-                console.log("AGENT: Attempting to execute code:\n", codeToExecute);
+                onProgress({ type: 'code_start', round: currentRound, content: codeToExecute });
                 try {
                     const result = await this.executeInWorker(codeToExecute, data);
-                    // 格式化成功反馈
                     const feedback = `Your code was executed successfully.\n\nOutput:\n\`\`\`json\n${JSON.stringify(result.data, null, 2)}\n\`\`\`\n\nPlease continue with the next step of the analysis.`;
-                    console.log("AGENT: Code execution successful. Feedback for LLM:\n", feedback);
                     this.conversationHistory.push({ role: 'user', content: feedback });
-                    onProgress({ type: 'code_end', content: `Code executed successfully. Output:\n${JSON.stringify(result.data, null, 2)}` });
+                    onProgress({ type: 'code_end', round: currentRound, content: JSON.stringify(result.data, null, 2) });
                 } catch (error) {
-                    // 格式化错误反馈，明确指示LLM进行修复
                     const feedback = `Your code failed to execute. Please fix it.\n\nError:\n\`\`\`\n${error.message}\n\`\`\`\n\nHere is the code that caused the error:\n\`\`\`javascript\n${parsedResponse.code}\n\`\`\``;
-                    console.error("AGENT: Code execution failed. Feedback for LLM:\n", feedback);
                     this.conversationHistory.push({ role: 'user', content: feedback });
-                    onProgress({ type: 'error', content: `Code execution failed. Error:\n${error.message}` });
+                    onProgress({ type: 'error', round: currentRound, content: error.message });
                 }
             } else if (parsedResponse.action === 'generate_plot') {
-                onProgress({ type: 'plot', content: 'Generating plot...' });
+                onProgress({ type: 'plot', round: currentRound, content: 'Generating plot...' });
                 finalResult.plotSpec = parsedResponse.plot_spec;
-                // Assuming plotting is the final step for now
                 break; 
             } else if (parsedResponse.action === 'analysis_complete') {
-                onProgress({ type: 'complete', content: 'Analysis complete.' });
+                onProgress({ type: 'complete', round: currentRound, content: 'Analysis complete.' });
                 finalResult.report = parsedResponse.final_report;
                 break;
             }
         }
 
-        console.log("%cAGENT: Analysis finished or max rounds reached. Terminating worker.", 'color: blue; font-weight: bold;');
         this.worker.terminate();
         return finalResult;
     }

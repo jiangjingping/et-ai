@@ -30,44 +30,39 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
       const agent = new JsDataAnalysisAgent();
       const onProgress = (progress) => {
         console.log("AGENT: progress update:", progress);
-        let title = '系统消息';
-        let content = progress.content;
         
-        const lastMessage = messages.value.length > 0 ? messages.value[messages.value.length - 1] : null;
+        let currentRoundMessage = messages.value.find(m => m.type === 'agent_round' && m.roundNumber === progress.round);
 
-        switch(progress.type) {
-          case 'llm_start':
-            title = `🧠 ${progress.content}`;
-            if (lastMessage && lastMessage.isStreaming) lastMessage.isStreaming = false;
-            addSystemMessage('正在调用大语言模型...', title).isStreaming = true;
-            break;
-          case 'code_start':
-            title = `⚡ 执行代码`;
-            if (lastMessage && lastMessage.isStreaming) lastMessage.isStreaming = false;
-            addSystemMessage('沙箱环境准备执行代码...', title).isStreaming = true;
-            break;
-          case 'code_end':
-            if (lastMessage && lastMessage.type === 'system' && lastMessage.title.startsWith('⚡')) {
-               lastMessage.content = `\`\`\`json\n${progress.content}\n\`\`\``;
-               lastMessage.isStreaming = false;
+        if (!currentRoundMessage && progress.type === 'llm_start') {
+          currentRoundMessage = addSystemMessage('', `🔄 Round ${progress.round}: Thinking...`);
+          currentRoundMessage.type = 'agent_round';
+          currentRoundMessage.roundNumber = progress.round;
+          currentRoundMessage.steps = [];
+        }
+        
+        if (currentRoundMessage) {
+            switch(progress.type) {
+                case 'llm_thought':
+                    currentRoundMessage.steps.push({ type: 'thought', content: progress.content });
+                    break;
+                case 'code_start':
+                    currentRoundMessage.steps.push({ type: 'code', content: progress.content, result: 'Executing...' });
+                    break;
+                case 'code_end':
+                    const codeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result === 'Executing...');
+                    if (codeStep) {
+                        codeStep.result = `\`\`\`json\n${progress.content}\n\`\`\``;
+                    }
+                    break;
+                case 'error':
+                    const failedCodeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result === 'Executing...');
+                    if (failedCodeStep) {
+                        failedCodeStep.result = `❌ **Error**:\n\`\`\`\n${progress.content}\n\`\`\``;
+                    } else {
+                         currentRoundMessage.steps.push({ type: 'error', content: progress.content });
+                    }
+                    break;
             }
-            break;
-          case 'error':
-             if (lastMessage && lastMessage.type === 'system' && lastMessage.title.startsWith('⚡')) {
-              lastMessage.content = `❌ **错误**:\n\`\`\`\n${progress.content}\n\`\`\``;
-              lastMessage.isStreaming = false;
-            } else {
-              addSystemMessage(`❌ **错误**:\n\`\`\`\n${progress.content}\n\`\`\``, '错误');
-            }
-            break;
-          case 'plot':
-          case 'complete':
-            if (lastMessage && lastMessage.isStreaming) {
-              lastMessage.isStreaming = false;
-            }
-            break;
-          default:
-            addSystemMessage(content, title);
         }
       };
 

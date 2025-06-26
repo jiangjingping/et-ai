@@ -44,19 +44,35 @@
         <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
       </div>
       
-      <!-- Agent Step Message (Collapsible) -->
-      <div v-if="message.type === 'system' && message.title && (message.title.startsWith('🧠') || message.title.startsWith('⚡'))" class="agent-step-message">
+      <!-- Agent Round Message (Collapsible) -->
+      <div v-if="message.type === 'agent_round'" class="agent-step-message">
         <div class="message-header collapsible-header" @click="toggleCollapse(message)">
           <span class="toggle-icon">{{ message.isCollapsed ? '▶' : '▼' }}</span>
           <span class="sender">{{ message.title }}</span>
           <span class="time">{{ message.time }}</span>
         </div>
-        <div v-show="!message.isCollapsed" class="message-content" v-html="formatMessage(message.content)">
+        <div v-show="!message.isCollapsed" class="message-content">
+          <div v-for="(step, stepIndex) in message.steps" :key="stepIndex" class="agent-sub-step">
+            <div v-if="step.type === 'thought'">
+              <strong>🤔 思考:</strong>
+              <p>{{ step.content }}</p>
+            </div>
+            <div v-if="step.type === 'code'">
+              <strong>💻 代码:</strong>
+              <div v-html="formatMessage('```javascript\n' + step.content + '\n```')"></div>
+              <strong>📊 结果:</strong>
+              <div v-html="formatMessage(step.result)"></div>
+            </div>
+             <div v-if="step.type === 'error'">
+              <strong>❌ 错误:</strong>
+              <p>{{ step.content }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Simple System Message -->
-      <div v-if="message.type === 'system' && (!message.title || (!message.title.startsWith('🧠') && !message.title.startsWith('⚡')))" class="message-content system-info">
+      <div v-if="message.type === 'system'" class="message-content system-info">
          <p><strong>{{ message.title || '系统提示' }}:</strong> {{ message.content }}</p>
       </div>
     </div>
@@ -231,6 +247,17 @@ export default {
   border-top: 1px solid #dcdfe6;
   padding: 12px;
   background: #fafafa;
+}
+
+.agent-sub-step {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #e0e0e0;
+}
+.agent-sub-step:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .message-content {
