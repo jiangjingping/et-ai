@@ -1,3 +1,5 @@
+import hljs from 'highlight.js';
+
 // 简化的Markdown渲染器，不依赖外部库
 // 如果需要更复杂的功能，可以后续集成marked库
 
@@ -11,14 +13,18 @@ function parseMarkdown(content) {
 
     // 处理代码块 (```)
     html = html.replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, language, code) => {
-        const lang = language || 'text'
+        const lang = language || 'plaintext';
+        const highlightedCode = hljs.getLanguage(lang) 
+            ? hljs.highlight(code, { language: lang, ignoreIllegals: true }).value
+            : hljs.highlightAuto(code).value;
+
         return `
             <div class="code-block">
                 <div class="code-header">
                     <span class="code-language">${lang}</span>
                     <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">📋 复制</button>
                 </div>
-                <pre class="code-content"><code class="language-${lang}">${escapeHtml(code)}</code></pre>
+                <pre class="code-content"><code class="hljs language-${lang}">${highlightedCode}</code></pre>
             </div>
         `
     })
