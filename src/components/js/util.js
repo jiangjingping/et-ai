@@ -598,6 +598,18 @@ function GetUrlPath() {
     return '/#'
   }
 
+function extractHeadersFromMarkdown(markdownTable) {
+    if (!markdownTable || typeof markdownTable !== 'string') return null;
+    const lines = markdownTable.split('\n');
+    if (lines.length < 1) return null; 
+    
+    const headerLine = lines[0].trim();
+    if (!headerLine.startsWith('|') || !headerLine.endsWith('|')) return null;
+
+    const headers = headerLine.slice(1, -1).split('|').map(h => h.trim()).filter(h => h);
+    return headers.length > 0 ? headers : null;
+}
+
 export default{
     WPS_Enum,
     GetUrlPath,
@@ -611,5 +623,6 @@ export default{
     getTableContextDataAsJson, // 新增函数
     getCellValue,
     columnLetterToNumber,
-    getTableDataDebug
+    getTableDataDebug,
+    extractHeadersFromMarkdown
 }
