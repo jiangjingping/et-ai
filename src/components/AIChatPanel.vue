@@ -154,7 +154,7 @@
               <button @click="toggleTableContext" class="attach-btn" :title="isTableContextAttached ? '清除引用的表格数据' : '引用当前表格数据'">
                 {{ isTableContextAttached ? '清除引用' : '引用表格' }}
               </button>
-              <button @click="startDataAnalysis" class="analysis-btn" title="Run Data Analysis Agent">
+              <button @click="startDataAnalysis" class="analysis-btn" title="运行数据分析代理">
                 分析代理
               </button>
             </div>
@@ -339,11 +339,11 @@ export default {
 
     const startDataAnalysis = async () => {
       if (!inputMessage.value.trim()) {
-        addSystemMessage('⚠️ Please enter your analysis request in the input box.');
+        addSystemMessage('⚠️ 请在输入框中输入您的分析请求。');
         return;
       }
       if (!isTableContextAttached.value) {
-        addSystemMessage('⚠️ Please attach table data first using the "引用表格" button.');
+        addSystemMessage('⚠️ 请先使用“引用表格”按钮引用表格数据。');
         return;
       }
 
@@ -352,12 +352,12 @@ export default {
       inputMessage.value = '';
       isLoading.value = true;
 
-      addSystemMessage('🚀 Starting Data Analysis Agent...');
+      addSystemMessage('🚀 正在启动数据分析代理...');
       
       try {
         const tableData = utilFunctions.getTableContextDataAsJson();
         if (!tableData || tableData.length === 0) {
-          addSystemMessage('❌ Could not retrieve valid data from the table.');
+          addSystemMessage('❌ 无法从表格中检索到有效数据。');
           isLoading.value = false;
           return;
         }
@@ -373,7 +373,7 @@ export default {
         if (result.plotSpec) {
             const message = {
                 type: 'ai',
-                content: 'Here is the plot you requested:',
+                content: '这是您请求的图表：',
                 time: new Date().toLocaleTimeString(),
                 plotSpec: result.plotSpec
             };
@@ -397,8 +397,8 @@ export default {
         scrollToBottom();
 
       } catch (error) {
-        console.error("Data analysis agent failed:", error);
-        addSystemMessage(`❌ Data analysis failed: ${error.message}`);
+        console.error("数据分析代理失败:", error);
+        addSystemMessage(`❌ 数据分析失败: ${error.message}`);
       } finally {
         isLoading.value = false;
       }
@@ -455,7 +455,7 @@ export default {
         return;
       }
 
-      const promptMessage = `请输入API Key для配置 "${currentLlm.name}":`;
+      const promptMessage = `请输入配置 "${currentLlm.name}" 的 API Key：`;
       const newKey = prompt(promptMessage, currentLlm.apiKey || '');
 
       if (newKey !== null) { 

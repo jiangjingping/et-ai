@@ -16,7 +16,7 @@ export class JsDataAnalysisAgent {
      */
     async analyze(userInput, data, onProgress) {
         console.log("Starting analysis with input:", userInput);
-        this.worker = new Worker(new URL('./worker.js', import.meta.url));
+        this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
         this.conversationHistory = [{ role: 'user', content: `User's request: ${userInput}\nData is provided in the 'data' variable.` }];
         
         let finalResult = { report: "Analysis complete.", plotSpec: null };
