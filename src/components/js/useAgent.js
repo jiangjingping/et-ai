@@ -42,6 +42,12 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
         
         if (currentRoundMessage) {
             switch(progress.type) {
+                case 'llm_stream':
+                    const thoughtStep = currentRoundMessage.steps.find(s => s.type === 'thought');
+                    if (thoughtStep) {
+                        thoughtStep.content += progress.content;
+                    }
+                    break;
                 case 'llm_thought':
                     currentRoundMessage.steps.push({ type: 'thought', content: progress.content });
                     break;

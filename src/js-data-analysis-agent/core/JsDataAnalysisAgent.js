@@ -23,12 +23,31 @@ export class JsDataAnalysisAgent {
 
         for (let i = 0; i < 5; i++) { // Limit to 5 rounds for now
             const currentRound = i + 1;
-            onProgress({ type: 'llm_start', round: currentRound, content: `Round ${currentRound}: Thinking...` });
+            onProgress({ type: 'llm_start', round: currentRound, content: `Round ${currentRound}` });
 
             const prompt = this.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n\n');
             const systemPrompt = getSystemPrompt();
             
-            const llmResponse = await aiService.callQwenAPI(prompt, systemPrompt);
+            const llmResponse = await new Promise((resolve, reject) => {
+                let fullResponse = "";
+                aiService.callQwenAPIStream(
+                    prompt,
+                    systemPrompt,
+                    (chunk, content) => {
+                        onProgress({ type: 'llm_stream', round: currentRound, content: chunk });
+                        fullResponse = content;
+                    },
+                    (finalContent) => {
+                        console.log("AGENT: LLM Stream finished. Full response:", finalContent);
+                        resolve(finalContent);
+                    },
+                    (error) => {
+                        console.error("AGENT: LLM Stream failed:", error);
+                        reject(error);
+                    }
+                );
+            });
+
             this.conversationHistory.push({ role: 'assistant', content: llmResponse });
             
             const parsedResponse = parseYaml(llmResponse);

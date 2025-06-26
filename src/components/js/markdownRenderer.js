@@ -22,7 +22,6 @@ function parseMarkdown(content) {
             <div class="code-block">
                 <div class="code-header">
                     <span class="code-language">${lang}</span>
-                    <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">📋 复制</button>
                 </div>
                 <pre class="code-content"><code class="hljs language-${lang}">${highlightedCode}</code></pre>
             </div>
@@ -88,10 +87,10 @@ function parseMarkdown(content) {
 // HTML转义函数
 function escapeHtml(text) {
     const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
+        '&': '&',
+        '<': '<',
+        '>': '>',
+        '"': '"',
         "'": '&#039;'
     }
     return text.replace(/[&<>"']/g, function(m) { return map[m] })
@@ -143,38 +142,6 @@ function processMarkdownTable(html) {
     })
 }
 
-// 添加代码复制功能
-function addCodeCopyFunction() {
-    if (typeof window !== 'undefined' && !window.copyCodeToClipboard) {
-        window.copyCodeToClipboard = function(button) {
-            const codeBlock = button.parentElement.nextElementSibling
-            const code = codeBlock.textContent
-
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(code).then(() => {
-                    button.textContent = '✅ 已复制'
-                    setTimeout(() => {
-                        button.textContent = '📋 复制'
-                    }, 2000)
-                })
-            } else {
-                // 回退方案
-                const textArea = document.createElement('textarea')
-                textArea.value = code
-                document.body.appendChild(textArea)
-                textArea.select()
-                document.execCommand('copy')
-                document.body.removeChild(textArea)
-
-                button.textContent = '✅ 已复制'
-                setTimeout(() => {
-                    button.textContent = '📋 复制'
-                }, 2000)
-            }
-        }
-    }
-}
-
 // 主要的Markdown渲染函数
 export function renderMarkdown(content) {
     if (!content || typeof content !== 'string') {
@@ -182,9 +149,6 @@ export function renderMarkdown(content) {
     }
 
     try {
-        // 添加代码复制功能
-        addCodeCopyFunction()
-
         // 使用简化的Markdown解析
         return parseMarkdown(content)
     } catch (error) {
