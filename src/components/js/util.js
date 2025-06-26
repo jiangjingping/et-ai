@@ -214,9 +214,7 @@ function setTableDataRowByRow(sheet, range, data) {
         throw new Error(`无效的范围格式: ${range}`);
     }
 
-    const startCol = columnLetterToNumber(rangeMatch[1]);
     const startRow = parseInt(rangeMatch[2]);
-    const endCol = columnLetterToNumber(rangeMatch[3]);
     const endRow = parseInt(rangeMatch[4]);
 
     // 逐行写入
@@ -231,16 +229,12 @@ function setTableDataRowByRow(sheet, range, data) {
         // 构建当前行的范围
         const rowRange = `${rangeMatch[1]}${currentRow}:${rangeMatch[3]}${currentRow}`;
 
+        const rowRangeObj = sheet.Range(rowRange);
+        // 优先使用Value2属性
         try {
-            const rowRangeObj = sheet.Range(rowRange);
-            // 优先使用Value2属性
-            try {
-                rowRangeObj.Value2 = [row]; // 包装成二维数组
-            } catch (value2Error) {
-                rowRangeObj.Value = [row]; // 备用方案
-            }
-        } catch (rowError) {
-            throw rowError;
+            rowRangeObj.Value2 = [row]; // 包装成二维数组
+        } catch (value2Error) {
+            rowRangeObj.Value = [row]; // 备用方案
         }
     }
 
@@ -267,16 +261,12 @@ function setTableDataCellByCell(sheet, range, data) {
             const cellCol = startCol + colIndex;
             const cellValue = row[colIndex];
 
+            const cell = sheet.Cells.Item(cellRow, cellCol);
+            // 优先使用Value2属性
             try {
-                const cell = sheet.Cells.Item(cellRow, cellCol);
-                // 优先使用Value2属性
-                try {
-                    cell.Value2 = cellValue;
-                } catch (value2Error) {
-                    cell.Value = cellValue; // 备用方案
-                }
-            } catch (cellError) {
-                throw cellError;
+                cell.Value2 = cellValue;
+            } catch (value2Error) {
+                cell.Value = cellValue; // 备用方案
             }
         }
     }
@@ -320,7 +310,7 @@ function formatTableDataForAI(data) {
 
 function getTableContextDataAsJson() {
     try {
-        const app = wps.EtApplication();
+        const app = window.wps.EtApplication();
         if (!app) {
             console.error("WPS Application object is not available.");
             return null;
@@ -368,7 +358,7 @@ function getTableContextDataAsJson() {
 // 获取上下文表格数据并格式化为Markdown
 function getTableContextDataAsMarkdown() {
     try {
-        const app = wps.EtApplication();
+        const app = window.wps.EtApplication();
         if (!app) {
             console.error("WPS Application object is not available.");
             return "";

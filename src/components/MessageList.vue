@@ -40,7 +40,7 @@
           <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
         </div>
         <div class="message-text" v-if="!message.plotSpec" v-html="formatMessage(message.content)"></div>
-        <div v-if="message.plotSpec" :ref="el => setPlotContainer(el)" class="plot-container"></div>
+        <PlotlyChart v-if="message.plotSpec" :spec="message.plotSpec" />
         <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
       </div>
       
@@ -93,11 +93,14 @@
 
 <script>
 import { ref, watch, nextTick } from 'vue';
-import Plotly from 'plotly.js-dist-min';
 import { renderMarkdown } from './js/markdownRenderer.js';
+import PlotlyChart from './PlotlyChart.vue';
 
 export default {
   name: 'MessageList',
+  components: {
+    PlotlyChart,
+  },
   props: {
     messages: Array,
     isLoading: Boolean,
@@ -105,11 +108,6 @@ export default {
   },
   setup(props) {
     const messagesContainer = ref(null);
-    let plotContainer = null;
-
-    const setPlotContainer = (el) => {
-      plotContainer = el;
-    };
 
     const formatMessage = (content) => {
       if (!content) return '';
@@ -128,23 +126,12 @@ export default {
       message.isCollapsed = !message.isCollapsed;
     };
 
-    watch(() => props.messages, (newMessages, oldMessages) => {
-      // Only scroll to bottom if a new message is added, not when an existing one is modified.
-      if (newMessages.length > oldMessages.length) {
-        scrollToBottom();
-      }
-      
-      const lastMessage = newMessages[newMessages.length - 1];
-      if (lastMessage && lastMessage.plotSpec && plotContainer) {
-        nextTick(() => {
-           Plotly.newPlot(plotContainer, lastMessage.plotSpec.data, lastMessage.plotSpec.layout);
-        });
-      }
-    }, { deep: true });
+    watch(() => props.messages.length, () => {
+      scrollToBottom();
+    });
 
     return {
       messagesContainer,
-      setPlotContainer,
       formatMessage,
       toggleCollapse,
     };

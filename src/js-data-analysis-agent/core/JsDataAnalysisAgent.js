@@ -21,7 +21,7 @@ export class JsDataAnalysisAgent {
         
         let finalResult = { report: "Analysis complete.", plotSpec: null };
 
-        for (let i = 0; i < 5; i++) { // Limit to 5 rounds for now
+        for (let i = 0; i < 10; i++) { // Limit to 10 rounds
             const currentRound = i + 1;
             onProgress({ type: 'llm_start', round: currentRound, content: `Round ${currentRound}` });
 
@@ -29,13 +29,11 @@ export class JsDataAnalysisAgent {
             const systemPrompt = getSystemPrompt();
             
             const llmResponse = await new Promise((resolve, reject) => {
-                let fullResponse = "";
                 aiService.callQwenAPIStream(
                     prompt,
                     systemPrompt,
-                    (chunk, content) => {
+                    (chunk) => {
                         onProgress({ type: 'llm_stream', round: currentRound, content: chunk });
-                        fullResponse = content;
                     },
                     (finalContent) => {
                         console.log("AGENT: LLM Stream finished. Full response:", finalContent);
@@ -73,7 +71,9 @@ export class JsDataAnalysisAgent {
                 }
             } else if (parsedResponse.action === 'generate_plot') {
                 onProgress({ type: 'plot', round: currentRound, content: 'Generating plot...' });
+                console.log("AGENT: Received plot_spec from LLM.", parsedResponse.plot_spec);
                 finalResult.plotSpec = parsedResponse.plot_spec;
+                console.log("AGENT: Final result object updated with plotSpec.", finalResult);
                 break; 
             } else if (parsedResponse.action === 'analysis_complete') {
                 onProgress({ type: 'complete', round: currentRound, content: 'Analysis complete.' });
