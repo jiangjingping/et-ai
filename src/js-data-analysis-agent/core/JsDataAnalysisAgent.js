@@ -15,40 +15,51 @@ export class JsDataAnalysisAgent {
      * @returns {Promise<object>} A promise that resolves with the final analysis report.
      */
     async analyze(userInput, data, onProgress) {
-        console.log("Starting analysis with input:", userInput);
+        console.log("AGENT: Starting analysis with input:", userInput);
         this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
         this.conversationHistory = [{ role: 'user', content: `User's request: ${userInput}\nData is provided in the 'data' variable.` }];
         
         let finalResult = { report: "Analysis complete.", plotSpec: null };
 
         for (let i = 0; i < 5; i++) { // Limit to 5 rounds for now
-            onProgress({ type: 'llm_start', content: `Round ${i + 1}: Thinking...` });
+            const currentRound = i + 1;
+            console.log(`%cAGENT: Round ${currentRound} Start`, 'color: blue; font-weight: bold;');
+            onProgress({ type: 'llm_start', content: `Round ${currentRound}: Thinking...` });
 
             const prompt = this.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n\n');
             const systemPrompt = getSystemPrompt();
             
+            console.log("AGENT: Calling LLM with prompt:", { systemPrompt, prompt });
             const llmResponse = await aiService.callQwenAPI(prompt, systemPrompt);
+            console.log("AGENT: Received LLM response:", llmResponse);
             this.conversationHistory.push({ role: 'assistant', content: llmResponse });
             
             const parsedResponse = parseYaml(llmResponse);
+            console.log("AGENT: Parsed YAML response:", parsedResponse);
 
             if (!parsedResponse || !parsedResponse.action) {
+                console.error("AGENT: Invalid or unparsable response from LLM.");
                 onProgress({ type: 'error', content: 'Invalid response from LLM.' });
                 break;
             }
 
             if (parsedResponse.action === 'generate_code') {
                 onProgress({ type: 'code_start', content: 'Executing code...' });
+                const codeToExecute = parsedResponse.code;
+                console.log("AGENT: Attempting to execute code:\n", codeToExecute);
                 try {
-                    const codeToExecute = parsedResponse.code;
                     const result = await this.executeInWorker(codeToExecute, data);
-                    const feedback = `Code executed successfully. Output:\n${JSON.stringify(result.data, null, 2)}`;
+                    // 格式化成功反馈
+                    const feedback = `Your code was executed successfully.\n\nOutput:\n\`\`\`json\n${JSON.stringify(result.data, null, 2)}\n\`\`\`\n\nPlease continue with the next step of the analysis.`;
+                    console.log("AGENT: Code execution successful. Feedback for LLM:\n", feedback);
                     this.conversationHistory.push({ role: 'user', content: feedback });
-                    onProgress({ type: 'code_end', content: feedback });
+                    onProgress({ type: 'code_end', content: `Code executed successfully. Output:\n${JSON.stringify(result.data, null, 2)}` });
                 } catch (error) {
-                    const feedback = `Code execution failed. Error:\n${error.message}`;
+                    // 格式化错误反馈，明确指示LLM进行修复
+                    const feedback = `Your code failed to execute. Please fix it.\n\nError:\n\`\`\`\n${error.message}\n\`\`\`\n\nHere is the code that caused the error:\n\`\`\`javascript\n${parsedResponse.code}\n\`\`\``;
+                    console.error("AGENT: Code execution failed. Feedback for LLM:\n", feedback);
                     this.conversationHistory.push({ role: 'user', content: feedback });
-                    onProgress({ type: 'error', content: feedback });
+                    onProgress({ type: 'error', content: `Code execution failed. Error:\n${error.message}` });
                 }
             } else if (parsedResponse.action === 'generate_plot') {
                 onProgress({ type: 'plot', content: 'Generating plot...' });
@@ -62,6 +73,7 @@ export class JsDataAnalysisAgent {
             }
         }
 
+        console.log("%cAGENT: Analysis finished or max rounds reached. Terminating worker.", 'color: blue; font-weight: bold;');
         this.worker.terminate();
         return finalResult;
     }

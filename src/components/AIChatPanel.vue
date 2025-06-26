@@ -348,6 +348,7 @@ export default {
       }
 
       const userQuery = inputMessage.value.trim();
+      console.log("UI: User triggered data analysis with query:", userQuery);
       addUserMessage(userQuery);
       inputMessage.value = '';
       isLoading.value = true;
@@ -361,14 +362,17 @@ export default {
           isLoading.value = false;
           return;
         }
+        console.log("UI: Extracted table data for agent:", tableData);
 
         const agent = new JsDataAnalysisAgent();
         const onProgress = (progress) => {
+          console.log("UI: Agent progress update:", progress);
           let content = `[${progress.type}] ${progress.content}`;
           addSystemMessage(content);
         };
 
         const result = await agent.analyze(userQuery, tableData, onProgress);
+        console.log("UI: Agent analysis finished. Final result:", result);
         
         if (result.plotSpec) {
             const message = {

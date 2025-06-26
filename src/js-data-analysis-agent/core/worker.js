@@ -16,7 +16,7 @@ import * as df from 'danfojs';
 
 self.onmessage = async function(event) {
     const { code, data } = event.data;
-    console.log("Worker received data processing code to execute.");
+    console.log("WORKER: Received message.", { code });
 
     try {
         // We pass the imported 'danfojs' library (as 'df') into the sandboxed function.
@@ -32,11 +32,12 @@ self.onmessage = async function(event) {
             data: executionResult,
             error: null
         };
-
+        
+        console.log("WORKER: Code execution successful. Posting result to main thread.", result);
         self.postMessage(result);
 
     } catch (error) {
-        console.error("Error executing code in worker:", error);
+        console.error("WORKER: Error executing code.", error);
         self.postMessage({
             success: false,
             data: null,
