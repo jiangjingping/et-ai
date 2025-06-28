@@ -277,12 +277,12 @@ export default {
       })
 
       try {
-        await aiService.callQwenAPIStream(
+        aiService.callQwenAPIStream(
           messageToSendToAI, 
           finalSystemPrompt, 
-          (chunk, content) => {
+          (chunk, accumulatedContent) => {
             if (messages.value[aiMessageIndex]) {
-              messages.value[aiMessageIndex].content = content;
+              messages.value[aiMessageIndex].content = accumulatedContent;
             }
           },
           (finalContent) => {

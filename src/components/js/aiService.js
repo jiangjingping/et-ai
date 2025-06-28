@@ -14,7 +14,6 @@ const DEFAULT_FALLBACK_PARAMS = {
 
 // 全局状态管理
 let currentAbortController = null
-let currentReader = null
 
 // 停止当前AI请求
 function stop() {
@@ -24,16 +23,6 @@ function stop() {
     if (currentAbortController) {
         currentAbortController.abort()
         currentAbortController = null
-    }
-
-    // 释放reader
-    if (currentReader) {
-        try {
-            currentReader.releaseLock()
-        } catch (error) {
-            console.warn('释放reader失败:', error)
-        }
-        currentReader = null
     }
 }
 
@@ -131,139 +120,87 @@ async function callQwenAPIStream(prompt, systemPrompt = '', onChunk = null, onCo
     if (!llmConfig.apiKey) {
         const error = new Error('请先在LLM配置中设置有效的API Key');
         if (onError) onError(error);
-        throw error;
+        // throw error; // No need to throw, onError handles it.
+        return;
     }
 
     const messages = [];
     if (systemPrompt) {
-        messages.push({
-            role: 'system',
-            content: systemPrompt
-        });
+        messages.push({ role: 'system', content: systemPrompt });
     }
-    messages.push({
-        role: 'user',
-        content: prompt
-    });
+    messages.push({ role: 'user', content: prompt });
 
-    try {
-        currentAbortController = new AbortController();
+    const requestBody = {
+        model: llmConfig.model,
+        messages: messages,
+        stream: true,
+        // Add other parameters from llmConfig if they exist
+        ...(llmConfig.temperature !== undefined && { temperature: llmConfig.temperature }),
+        ...(llmConfig.topP !== undefined && { top_p: llmConfig.topP }),
+        ...(llmConfig.maxTokens !== undefined && { max_tokens: llmConfig.maxTokens }),
+    };
 
-        const requestBody = {
-            model: llmConfig.model,
-            messages: messages,
-            stream: true
-        };
+    const xhr = new XMLHttpRequest();
+    // Assign the xhr to the global controller so it can be aborted.
+    currentAbortController = xhr; 
 
-        if (llmConfig.temperature !== undefined && llmConfig.temperature >= 0 && llmConfig.temperature <= 2) {
-            requestBody.temperature = llmConfig.temperature;
-        }
-        if (llmConfig.topP !== undefined && llmConfig.topP > 0 && llmConfig.topP <= 1) {
-            requestBody.top_p = llmConfig.topP;
-        }
-        // max_tokens is often problematic with streaming APIs or not supported for some models in stream mode.
-        // If needed, it can be added here, but ensure compatibility.
-        // if (llmConfig.maxTokens !== undefined && llmConfig.maxTokens > 0) {
-        //     requestBody.max_tokens = llmConfig.maxTokens;
-        // }
+    xhr.open('POST', llmConfig.baseURL, true);
+    xhr.setRequestHeader('Authorization', `Bearer ${llmConfig.apiKey}`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
 
-        const response = await fetch(llmConfig.baseURL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${llmConfig.apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody),
-            signal: currentAbortController.signal
-        });
+    let lastResponseLength = 0;
+    let accumulatedContent = '';
 
-        if (!response.ok) {
-            const errorDataText = await response.text();
-            let errorMessage = `API调用失败: ${response.status}`;
+    xhr.onprogress = function() {
+        const newResponseText = xhr.responseText.substring(lastResponseLength);
+        lastResponseLength = xhr.responseText.length;
+        const lines = newResponseText.split('\n');
+
+        for (const line of lines) {
+            if (line.trim() === '' || !line.startsWith('data: ')) continue;
+            if (line.trim() === 'data: [DONE]') continue;
+
             try {
-                const errorJson = JSON.parse(errorDataText);
-                errorMessage += ` - ${errorJson.error?.message || errorJson.message || errorDataText}`;
-            } catch (e) {
-                errorMessage += ` - ${errorDataText}`;
-            }
-            throw new Error(errorMessage);
-        }
+                const jsonStr = line.slice(6);
+                const data = JSON.parse(jsonStr);
 
-        currentReader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulatedContent = '';
-
-        try {
-            while (true) {
-                if (currentAbortController && currentAbortController.signal.aborted) {
-                    console.log('流式请求被用户中止');
-                    if (onError) onError(new Error('用户中止请求')); // Notify onError about user abort
-                    break; 
+                if (data.choices?.[0]?.delta?.content) {
+                    const deltaContent = data.choices[0].delta.content;
+                    accumulatedContent += deltaContent;
+                    if (onChunk) onChunk(deltaContent, accumulatedContent);
                 }
-
-                const { done, value } = await currentReader.read();
-
-                if (done) {
-                    if (onComplete) onComplete(accumulatedContent);
-                    break;
-                }
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
-
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const jsonStr = line.slice(6);
-                            const data = JSON.parse(jsonStr);
-
-                            if (data.choices?.[0]?.delta?.content) {
-                                const deltaContent = data.choices[0].delta.content;
-                                accumulatedContent += deltaContent;
-                                if (onChunk) onChunk(deltaContent, accumulatedContent);
-                            }
-                        } catch (parseError) {
-                            console.warn('解析流式数据块失败:', parseError, '原始行:', line);
-                        }
-                    }
-                }
-            }
-        } finally {
-            if (currentReader) {
-                try {
-                    // Ensure reader is released even if loop breaks due to abort
-                    if (!currentReader.closed) { // Check if reader is not already closed
-                         await currentReader.cancel(); // Cancel the reader if aborted
-                    }
-                    currentReader.releaseLock();
-                } catch (releaseError) {
-                    console.warn('释放reader锁失败:', releaseError);
-                }
-                currentReader = null;
-            }
-            // Only nullify controller if it wasn't aborted by an external stop() call
-            // If stop() was called, it already nullified currentAbortController
-            if (currentAbortController && !currentAbortController.signal.aborted) {
-                 currentAbortController = null;
+            } catch (parseError) {
+                console.warn('解析流式数据块失败:', parseError, '原始行:', line);
             }
         }
-        return accumulatedContent;
-    } catch (error) {
-        console.error('流式API调用失败:', error);
-        if (onError && error.name !== 'AbortError') { // Don't call onError again if already handled by abort
-             onError(error);
+    };
+
+    xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            if (onComplete) onComplete(accumulatedContent);
+        } else {
+            const error = new Error(`API调用失败: ${xhr.status} - ${xhr.statusText || '未知API错误'}. 响应: ${xhr.responseText}`);
+            if (onError) onError(error);
         }
-        // Re-throw the error if it's not an AbortError, or let it be handled by the caller
-        if (error.name !== 'AbortError') {
-            if (error.message.includes('fetch')) { // Basic network error check
-                 throw new Error('网络请求失败，请检查网络连接');
-            }
-            throw error; // Re-throw other errors
-        }
-        return accumulatedContent; // Return whatever was accumulated before abort
-    }
+        currentAbortController = null;
+    };
+
+    xhr.onerror = function() {
+        const error = new Error('网络请求失败，请检查网络连接');
+        if (onError) onError(error);
+        currentAbortController = null;
+    };
+    
+    xhr.onabort = function() {
+        console.log('XHR请求被中止');
+        if (onError) onError(new Error('用户中止请求'));
+        currentAbortController = null;
+    };
+
+    xhr.send(JSON.stringify(requestBody));
+
+    // Since this is now XHR, the async/await structure is handled by callbacks.
+    // The function doesn't need to return a promise of the accumulated content anymore.
 }
 
 export default {

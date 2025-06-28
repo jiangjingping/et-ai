@@ -61,7 +61,12 @@
               <strong>💻 代码:</strong>
               <div v-html="formatMessage('```javascript\n' + step.content + '\n```')"></div>
               <strong>📊 结果:</strong>
-              <div v-html="formatMessage(step.result)"></div>
+              <div class="code-result">
+                <span>{{ step.result.summary }}</span>
+                <button v-if="step.result.details" @click="showResultDetails(step.result)" class="details-btn">
+                  查看详情
+                </button>
+              </div>
             </div>
              <div v-if="step.type === 'error'">
               <strong>❌ 错误:</strong>
@@ -130,16 +135,42 @@ export default {
       scrollToBottom();
     });
 
+    const showResultDetails = (result) => {
+      const formattedDetails = result.isError ? result.details : JSON.stringify(JSON.parse(result.details), null, 2);
+      const title = result.isError ? '❌ 执行错误详情' : '✅ 执行成功详情';
+      
+      // Using a simple prompt to display details. In a real app, a modal component would be better.
+      prompt(title, formattedDetails);
+    };
+
     return {
       messagesContainer,
       formatMessage,
       toggleCollapse,
+      showResultDetails,
     };
   }
 }
 </script>
 
 <style scoped>
+.code-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+.details-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+}
+.details-btn:hover {
+  background-color: #e0e0e0;
+}
 .messages-container {
   flex: 1;
   overflow-y: auto;

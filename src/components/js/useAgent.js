@@ -43,27 +43,37 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
         if (currentRoundMessage) {
             switch(progress.type) {
                 case 'llm_stream':
-                    const thoughtStep = currentRoundMessage.steps.find(s => s.type === 'thought');
-                    if (thoughtStep) {
-                        thoughtStep.content += progress.content;
+                    let thoughtStep = currentRoundMessage.steps.find(s => s.type === 'thought');
+                    if (!thoughtStep) {
+                        thoughtStep = { type: 'thought', content: '' };
+                        currentRoundMessage.steps.push(thoughtStep);
                     }
+                    thoughtStep.content = progress.accumulatedContent;
                     break;
                 case 'llm_thought':
                     currentRoundMessage.steps.push({ type: 'thought', content: progress.content });
                     break;
                 case 'code_start':
-                    currentRoundMessage.steps.push({ type: 'code', content: progress.content, result: 'Executing...' });
+                    currentRoundMessage.steps.push({ type: 'code', content: progress.content, result: { summary: 'Executing...', details: null, isError: false } });
                     break;
                 case 'code_end':
-                    const codeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result === 'Executing...');
+                    const codeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result.summary === 'Executing...');
                     if (codeStep) {
-                        codeStep.result = `\`\`\`json\n${progress.content}\n\`\`\``;
+                        codeStep.result = {
+                            summary: '✅ 执行成功',
+                            details: progress.content, // Raw JSON string
+                            isError: false
+                        };
                     }
                     break;
                 case 'error':
-                    const failedCodeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result === 'Executing...');
+                    const failedCodeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result.summary === 'Executing...');
                     if (failedCodeStep) {
-                        failedCodeStep.result = `❌ **Error**:\n\`\`\`\n${progress.content}\n\`\`\``;
+                        failedCodeStep.result = {
+                            summary: '❌ 执行失败',
+                            details: progress.content, // Error message
+                            isError: true
+                        };
                     } else {
                          currentRoundMessage.steps.push({ type: 'error', content: progress.content });
                     }

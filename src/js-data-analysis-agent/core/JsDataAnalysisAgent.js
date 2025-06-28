@@ -29,15 +29,18 @@ export class JsDataAnalysisAgent {
             const systemPrompt = getSystemPrompt();
             
             const llmResponse = await new Promise((resolve, reject) => {
+                let accumulatedContent = '';
                 aiService.callQwenAPIStream(
                     prompt,
                     systemPrompt,
-                    (chunk) => {
-                        onProgress({ type: 'llm_stream', round: currentRound, content: chunk });
+                    (chunk, newAccumulatedContent) => {
+                        accumulatedContent = newAccumulatedContent;
+                        onProgress({ type: 'llm_stream', round: currentRound, content: chunk, accumulatedContent: newAccumulatedContent });
                     },
                     (finalContent) => {
-                        console.log("AGENT: LLM Stream finished. Full response:", finalContent);
-                        resolve(finalContent);
+                        console.log("AGENT: LLM Stream finished. Full response:", finalContent || accumulatedContent);
+                        this.conversationHistory.push({ role: 'assistant', content: finalContent || accumulatedContent });
+                        resolve(finalContent || accumulatedContent);
                     },
                     (error) => {
                         console.error("AGENT: LLM Stream failed:", error);
@@ -45,8 +48,6 @@ export class JsDataAnalysisAgent {
                     }
                 );
             });
-
-            this.conversationHistory.push({ role: 'assistant', content: llmResponse });
             
             const parsedResponse = parseYaml(llmResponse);
             onProgress({ type: 'llm_thought', round: currentRound, content: parsedResponse.thought });
