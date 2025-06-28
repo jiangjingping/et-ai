@@ -39,7 +39,7 @@
           <span class="time">{{ message.time }}</span>
           <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
         </div>
-        <div class="message-text" v-if="!message.plotSpec" v-html="formatMessage(message.content)"></div>
+        <div class="message-text" v-if="!message.plotSpec" v-html="message.content"></div>
         <PlotlyChart v-if="message.plotSpec" :spec="message.plotSpec" />
         <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
       </div>
@@ -55,7 +55,7 @@
           <div v-for="(step, stepIndex) in message.steps" :key="stepIndex" class="agent-sub-step">
             <div v-if="step.type === 'thought'">
               <strong>🤔 思考:</strong>
-              <p>{{ step.content }}</p>
+              <div v-html="step.content"></div>
             </div>
             <div v-if="step.type === 'code'">
               <strong>💻 代码:</strong>

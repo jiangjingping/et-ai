@@ -56,15 +56,24 @@ export const getSystemPrompt = () => {
         '| `danfo.merge({left: df1, right: df2, on: [...]})` | 合并两个DataFrame。 |\n' +
         '| `danfo.concat({dfList: [df1, df2], axis: 0/1})` | 连接两个DataFrame。 |\n\n' +
         '---\n\n' +
-        '**响应格式 (必须是 YAML):**\n' +
-        '你的整个响应必须是一个严格的、单一的 YAML 块。\n\n' +
+'**响应格式 (必须是 YAML):**\n' +
+'你的整个响应必须是一个严格的、单一的 YAML 块。`thought` 必须是一个多行块，包含 `title` 和 `text` 两个字段。\n\n' +
+'```yaml\n' +
+'action: generate_code\n' +
+'thought: |\n' +
+'  title: "当前步骤的简洁标题"\n' +
+'  text: "对当前步骤的详细思考和解释。"\n' +
+'# ... 其他字段，如 code 或 plot_spec\n' +
+'```\n\n' +
         '---\n\n' +
         '### **动作 (Actions)**\n\n' +
         '**1. `generate_code`**: 编写并执行代码。\n' +
-        '   - **示例 1 (数据探索):**\n' +
-        'action: generate_code\n' +
-        'thought: "第一步是数据探索。我将创建DataFrame，并使用速查表中的 `head`, `describe`, 和 `isNa` 函数来了解数据概况。"\n' +
-        'code: |\n' +
+'   - **示例 1 (数据探索):**\n' +
+'action: generate_code\n' +
+'thought: |\n' +
+'  title: "数据探索"\n' +
+'  text: "第一步是数据探索。我将创建DataFrame，并使用速查表中的 `head`, `describe`, 和 `isNa` 函数来了解数据概况。"\n' +
+'code: |\n' +
         '  const df = new danfo.DataFrame(data);\n' +
         '  const head = danfo.toJSON(df.head(5));\n' +
         '  const describe = danfo.toJSON(df.describe());\n' +
@@ -77,7 +86,9 @@ export const getSystemPrompt = () => {
         '  };\n\n' +
         '   - **示例 2 (数据清洗):**\n' +
         'action: generate_code\n' +
-        'thought: "从探索结果看，\'Age\' 列有缺失值，\'Price\' 列是字符串。我将使用 `fillNa` 填充年龄，并用 `apply` 转换价格类型，严格遵循速查表规范。"\n' +
+        'thought: |\n' +
+        '  title: "数据清洗"\n' +
+        '  text: "从探索结果看，\'Age\' 列有缺失值，\'Price\' 列是字符串。我将使用 `fillNa` 填充年龄，并用 `apply` 转换价格类型，严格遵循速查表规范。"\n' +
         'code: |\n' +
         '  let df = new danfo.DataFrame(data);\n' +
         '  // 填充缺失值 (注意: `fillNa` 是原地操作)\n' +
@@ -94,7 +105,9 @@ export const getSystemPrompt = () => {
         '**2. `generate_plot`**: 准备绘图所需的数据。\n' +
         '   - **示例:**\n' +
         'action: generate_plot\n' +
-        'thought: "数据已处理完毕，现在我将创建一个条形图的规范，以可视化按城市划分的销售额。"\n' +
+        'thought: |\n' +
+        '  title: "生成图表"\n' +
+        '  text: "数据已处理完毕，现在我将创建一个条形图的规范，以可视化按城市划分的销售额。"\n' +
         'plot_spec:\n' +
         '  type: \'plotly\'\n' +
         '  data:\n' +
@@ -106,7 +119,9 @@ export const getSystemPrompt = () => {
         '**3. `analysis_complete`**: 结束分析并提供最终报告。\n' +
         '   - **示例:**\n' +
         'action: analysis_complete\n' +
-        'thought: "我已经完成了所有分析和可视化，现在提交最终报告。"\n' +
+        'thought: |\n' +
+        '  title: "完成分析"\n' +
+        '  text: "我已经完成了所有分析和可视化，现在提交最终报告。"\n' +
         'final_report: "本次分析显示了积极的销售趋势。关键指标已计算完毕，相关图表也已提供给用户查阅。"\n\n' +
         '---\n\n' +
         '### **如何处理代码执行反馈**\n\n' +

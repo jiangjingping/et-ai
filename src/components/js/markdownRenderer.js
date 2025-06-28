@@ -11,8 +11,21 @@ function parseMarkdown(content) {
 
     let html = content
 
-    // 处理代码块 (```)
-    html = html.replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, language, code) => {
+    // 处理代码块 (```) - 改进以更好地支持流式渲染
+    html = html.replace(/```(\w+)?\n([\s\S]*?)(```|$)/g, (match, language, code, endMarker) => {
+        // 如果代码块没有正确结束，我们只进行简单的HTML转义，以保证流式效果
+        if (endMarker !== '```') {
+            return `
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-language">${language || 'plaintext'}</span>
+                    </div>
+                    <pre class="code-content"><code class="hljs language-${language || 'plaintext'}">${escapeHtml(code)}</code></pre>
+                </div>
+            `;
+        }
+
+        // 如果代码块已闭合，则进行语法高亮
         const lang = language || 'plaintext';
         const highlightedCode = hljs.getLanguage(lang) 
             ? hljs.highlight(code, { language: lang, ignoreIllegals: true }).value

@@ -48,6 +48,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import aiService from './js/aiService.js'
 import utilFunctions from './js/util.js'
+import { renderMarkdown } from './js/markdownRenderer.js';
 import LLMConfigPanel from './LLMConfigPanel.vue'
 import appConfigManager from './js/appConfigManager.js'
 import ChatHeader from './ChatHeader.vue'
@@ -282,7 +283,7 @@ export default {
           finalSystemPrompt, 
           (chunk, accumulatedContent) => {
             if (messages.value[aiMessageIndex]) {
-              messages.value[aiMessageIndex].content = accumulatedContent;
+              messages.value[aiMessageIndex].content = renderMarkdown(accumulatedContent);
             }
           },
           (finalContent) => {

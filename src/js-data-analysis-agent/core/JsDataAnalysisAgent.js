@@ -50,7 +50,12 @@ export class JsDataAnalysisAgent {
             });
             
             const parsedResponse = parseYaml(llmResponse);
-            onProgress({ type: 'llm_thought', round: currentRound, content: parsedResponse.thought });
+            
+            const thought = typeof parsedResponse.thought === 'string' 
+                ? { title: `思考`, text: parsedResponse.thought }
+                : parsedResponse.thought;
+
+            onProgress({ type: 'llm_thought', round: currentRound, content: thought });
 
             if (!parsedResponse || !parsedResponse.action) {
                 onProgress({ type: 'error', round: currentRound, content: 'Invalid response from LLM.' });
