@@ -59,13 +59,18 @@
             </div>
             <div v-if="step.type === 'code'">
               <strong>💻 代码:</strong>
-              <div v-html="formatMessage('```javascript\n' + step.content + '\n```')"></div>
-              <strong>📊 结果:</strong>
-              <div class="code-result">
-                <span>{{ step.result.summary }}</span>
-                <button v-if="step.result.details" @click="showResultDetails(step.result)" class="details-btn">
-                  查看详情
-                </button>
+              <div>
+                <div v-html="formatMessage('```\n' + step.content + '\n```')"></div>
+                <strong>📊 结果:</strong>
+                <div class="code-result">
+                  <span>{{ step.result.summary }}</span>
+                  <button v-if="step.result.details" @click="step.result.showDetails = !step.result.showDetails" class="details-btn">
+                    {{ step.result.showDetails ? '隐藏详情' : '查看详情' }}
+                  </button>
+                </div>
+                <div v-if="step.result.showDetails" class="result-details">
+                  <pre>{{ step.result.isError ? step.result.details : JSON.stringify(JSON.parse(step.result.details), null, 2) }}</pre>
+                </div>
               </div>
             </div>
              <div v-if="step.type === 'error'">
@@ -135,19 +140,10 @@ export default {
       scrollToBottom();
     });
 
-    const showResultDetails = (result) => {
-      const formattedDetails = result.isError ? result.details : JSON.stringify(JSON.parse(result.details), null, 2);
-      const title = result.isError ? '❌ 执行错误详情' : '✅ 执行成功详情';
-      
-      // Using a simple prompt to display details. In a real app, a modal component would be better.
-      prompt(title, formattedDetails);
-    };
-
     return {
       messagesContainer,
       formatMessage,
       toggleCollapse,
-      showResultDetails,
     };
   }
 }
@@ -170,6 +166,16 @@ export default {
 }
 .details-btn:hover {
   background-color: #e0e0e0;
+}
+.result-details {
+  margin-top: 8px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 12px;
 }
 .messages-container {
   flex: 1;

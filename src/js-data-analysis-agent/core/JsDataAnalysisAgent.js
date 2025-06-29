@@ -1,6 +1,7 @@
 import { parseYaml } from '../utils/yamlParser.js';
 import { getSystemPrompt } from './prompts.js';
 import aiService from '../../components/js/aiService.js';
+import jsyaml from 'js-yaml';
 
 export class JsDataAnalysisAgent {
     constructor() {
@@ -51,9 +52,30 @@ export class JsDataAnalysisAgent {
             
             const parsedResponse = parseYaml(llmResponse);
             
-            const thought = typeof parsedResponse.thought === 'string' 
-                ? { title: `思考`, text: parsedResponse.thought }
-                : parsedResponse.thought;
+            let thoughtContent = parsedResponse.thought;
+            let thought = {};
+
+            if (typeof thoughtContent === 'string') {
+                try {
+                    // 尝试将 thought 字符串本身作为 YAML 解析
+                    const nestedParsed = jsyaml.load(thoughtContent);
+                    if (typeof nestedParsed === 'object' && nestedParsed !== null) {
+                        thought = nestedParsed;
+                    } else {
+                        // 如果解析出来不是对象，就当成纯文本
+                        thought = { text: thoughtContent };
+                    }
+                } catch (e) {
+                    // 解析失败，也当成纯文本
+                    thought = { text: thoughtContent };
+                }
+            } else if (typeof thoughtContent === 'object' && thoughtContent !== null) {
+                thought = thoughtContent;
+            }
+
+            // 确保有 title 和 text
+            thought.title = thought.title || '思考';
+            thought.text = thought.text || (typeof thoughtContent === 'string' ? thoughtContent : '正在分析...');
 
             onProgress({ type: 'llm_thought', round: currentRound, content: thought });
 

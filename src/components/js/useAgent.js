@@ -40,11 +40,13 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
           currentRoundMessage.roundNumber = progress.round;
           currentRoundMessage.isCompleted = false;
           currentRoundMessage.steps = [];
+          // 初始化 baseTitle
+          currentRoundMessage.baseTitle = '正在思考'; 
         }
         
         if (currentRoundMessage) {
             switch(progress.type) {
-                case 'llm_stream':
+                case 'llm_stream': {
                     // This part remains the same for live thought streaming
                     let thoughtStep = currentRoundMessage.steps.find(s => s.type === 'thought');
                     if (!thoughtStep) {
@@ -53,10 +55,13 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
                     }
                     thoughtStep.content = renderMarkdown(progress.accumulatedContent.text || progress.accumulatedContent);
                     break;
-                case 'llm_thought':
-                    // Update title when thought is complete
-                    currentRoundMessage.title = `🔄 第 ${progress.round} 轮: ${progress.content.title || '执行中...'}`;
-                    // Ensure the thought step content is also updated if it wasn't streamed
+                }
+                case 'llm_thought': {
+                    // 从 LLM 的响应中获取标题，如果不存在则使用旧的 baseTitle
+                    currentRoundMessage.baseTitle = progress.content.title || currentRoundMessage.baseTitle;
+                    // 更新标题以反映当前状态
+                    currentRoundMessage.title = `🔄 第 ${progress.round} 轮: ${currentRoundMessage.baseTitle}...`;
+                    
                     let finalThoughtStep = currentRoundMessage.steps.find(s => s.type === 'thought');
                     if (finalThoughtStep) {
                         finalThoughtStep.content = renderMarkdown(progress.content.text);
@@ -64,37 +69,47 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
                         currentRoundMessage.steps.push({ type: 'thought', content: renderMarkdown(progress.content.text) });
                     }
                     break;
+                }
                 case 'code_start':
-                    currentRoundMessage.steps.push({ type: 'code', content: progress.content, result: { summary: 'Executing...', details: null, isError: false } });
+                    currentRoundMessage.steps.push({ 
+                        type: 'code', 
+                        content: progress.content, 
+                        result: { summary: 'Executing...', details: null, isError: false },
+                        isCollapsed: true 
+                    });
                     break;
-                case 'code_end':
+                case 'code_end': {
                     const codeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result.summary === 'Executing...');
                     if (codeStep) {
                         codeStep.result = {
                             summary: '✅ 执行成功',
                             details: progress.content, // Raw JSON string
-                            isError: false
+                            isError: false,
+                            showDetails: false
                         };
                     }
-                    // Mark the round as completed
-                    currentRoundMessage.title = `✅ 第 ${progress.round} 轮: ${currentRoundMessage.title.replace('🔄', '').split(':')[1].trim()}... 已完成`;
+                    // 使用 baseTitle 构建完成状态的标题
+                    currentRoundMessage.title = `✅ 第 ${progress.round} 轮: ${currentRoundMessage.baseTitle}... 已完成`;
                     currentRoundMessage.isCompleted = true;
                     break;
-                case 'error':
+                }
+                case 'error': {
                     const failedCodeStep = currentRoundMessage.steps.find(s => s.type === 'code' && s.result.summary === 'Executing...');
                     if (failedCodeStep) {
                         failedCodeStep.result = {
                             summary: '❌ 执行失败',
                             details: progress.content, // Error message
-                            isError: true
+                            isError: true,
+                            showDetails: false
                         };
                     } else {
                          currentRoundMessage.steps.push({ type: 'error', content: progress.content });
                     }
-                    // Mark the round as completed with failure
-                    currentRoundMessage.title = `❌ 第 ${progress.round} 轮: ${currentRoundMessage.title.replace('🔄', '').split(':')[1].trim()}... 失败`;
+                    // 使用 baseTitle 构建失败状态的标题
+                    currentRoundMessage.title = `❌ 第 ${progress.round} 轮: ${currentRoundMessage.baseTitle}... 失败`;
                     currentRoundMessage.isCompleted = true;
                     break;
+                }
             }
         }
       };

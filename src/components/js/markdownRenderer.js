@@ -15,14 +15,7 @@ function parseMarkdown(content) {
     html = html.replace(/```(\w+)?\n([\s\S]*?)(```|$)/g, (match, language, code, endMarker) => {
         // 如果代码块没有正确结束，我们只进行简单的HTML转义，以保证流式效果
         if (endMarker !== '```') {
-            return `
-                <div class="code-block">
-                    <div class="code-header">
-                        <span class="code-language">${language || 'plaintext'}</span>
-                    </div>
-                    <pre class="code-content"><code class="hljs language-${language || 'plaintext'}">${escapeHtml(code)}</code></pre>
-                </div>
-            `;
+        return `<div class="code-block"><pre class="code-content"><code class="hljs language-${language || 'plaintext'}">${escapeHtml(code)}</code></pre></div>`;
         }
 
         // 如果代码块已闭合，则进行语法高亮
@@ -31,14 +24,7 @@ function parseMarkdown(content) {
             ? hljs.highlight(code, { language: lang, ignoreIllegals: true }).value
             : hljs.highlightAuto(code).value;
 
-        return `
-            <div class="code-block">
-                <div class="code-header">
-                    <span class="code-language">${lang}</span>
-                </div>
-                <pre class="code-content"><code class="hljs language-${lang}">${highlightedCode}</code></pre>
-            </div>
-        `
+        return `<div class="code-block"><pre class="code-content"><code class="hljs language-${lang}">${highlightedCode}</code></pre></div>`
     })
 
     // 处理行内代码 (`)
@@ -119,7 +105,7 @@ function processMarkdownTable(html) {
         if (lines.length < 3) return match
 
         const headerLine = lines[0]
-        const separatorLine = lines[1]
+        // const separatorLine = lines[1] // Not used, but kept for context
         const dataLines = lines.slice(2)
 
         // 解析表头
