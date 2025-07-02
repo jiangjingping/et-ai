@@ -2,42 +2,41 @@ import yaml from 'js-yaml';
 
 /**
  * @file yamlParser.js
- * @description A utility for parsing YAML strings from LLM responses
- * using the js-yaml library.
+ * @description 一个使用 js-yaml 库从 LLM 响应中解析 YAML 字符串的工具。
  */
 
 /**
- * Extracts and parses a YAML block from a string.
- * @param {string} text The text containing the YAML block.
- * @returns {object|null} The parsed JavaScript object or null if parsing fails.
+ * 从字符串中提取并解析 YAML 块。
+ * @param {string} text 包含 YAML 块的文本。
+ * @returns {object|null} 解析后的 JavaScript 对象，如果解析失败则返回 null。
  */
 export function parseYaml(text) {
     try {
-        // Find the YAML block, which might be enclosed in ```yaml ... ```
+        // 查找 YAML 块，它可能被 ```yaml ... ``` 包围
         const match = text.match(/```yaml\n([\s\S]*?)\n```/);
         
         let yamlString;
         if (match && match[1]) {
-            // If a fenced code block is found, use its content
+            // 如果找到了围栏代码块，则使用其内容
             yamlString = match[1];
         } else {
-            // Otherwise, assume the whole string is YAML
+            // 否则，假定整个字符串都是 YAML
             yamlString = text;
         }
 
-        // Use js-yaml to safely load the YAML string
+        // 使用 js-yaml 安全地加载 YAML 字符串
         const data = yaml.load(yamlString);
         
-        // Ensure the result is an object
+        // 确保结果是一个对象
         if (typeof data === 'object' && data !== null) {
             return data;
         } else {
-            console.warn("Parsed YAML is not an object:", data);
+            console.warn("解析出的 YAML 不是一个对象:", data);
             return null;
         }
 
     } catch (error) {
-        console.error("Failed to parse YAML:", error);
+        console.error("解析 YAML 失败:", error);
         return null;
     }
 }
