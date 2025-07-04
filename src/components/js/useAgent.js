@@ -116,17 +116,20 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
 
       const result = await agent.analyze(userQuery, tableData, onProgress);
       
+      // 极简最终结果处理
       if (result.plotSpec) {
           messages.value.push({
               type: 'ai',
-              content: '这是您请求的图表：',
+              content: '', // 图表消息不需要额外内容
               time: new Date().toLocaleTimeString(),
               plotSpec: result.plotSpec
           });
-      } else {
+      }
+      
+      if (result.report && result.report !== '分析完成。') {
            messages.value.push({
               type: 'ai',
-              content: `✅ ${result.report}`,
+              content: result.report, // 直接使用简短报告文本
               time: new Date().toLocaleTimeString()
           });
       }

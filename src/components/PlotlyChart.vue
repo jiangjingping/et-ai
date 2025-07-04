@@ -19,7 +19,10 @@ export default {
 
     const renderPlot = () => {
       if (plotEl.value && props.spec) {
-        Plotly.newPlot(plotEl.value, props.spec.data, props.spec.layout);
+        // 关键修复：创建 props.spec 的深拷贝副本，以防止 Plotly 修改原始响应式对象
+        // 这可以避免 "Maximum recursive updates exceeded" 错误
+        const specCopy = JSON.parse(JSON.stringify(props.spec));
+        Plotly.newPlot(plotEl.value, specCopy.data, specCopy.layout);
       }
     };
 

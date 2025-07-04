@@ -108,11 +108,11 @@ export class JsDataAnalysisAgent {
                 const codeToExecute = parsedResponse.code;
                 onProgress({ type: 'plot', round: currentRound, content: '正在生成图表...' });
                 try {
-                    // 将最新的 workingData 传递给图表生成代码
                     const result = await this.executeInWorker(codeToExecute, workingData);
-                    finalResult.plotSpec = result.data; // worker 现在返回 spec 对象
-                    console.log("AGENT: 最终结果对象已通过生成的代码更新 plotSpec。", finalResult);
-                    break;
+                    finalResult.plotSpec = result.data;
+                    finalResult.report = parsedResponse.final_report; // 获取简短报告
+                    console.log("AGENT: 已生成图表和最终报告。", finalResult);
+                    break; // 结束流程
                 } catch (error) {
                     const feedback = `你的图表生成代码执行失败。请修复它。\n\n错误:\n\`\`\`\n${error.message}\n\`\`\`\n\n这是导致错误的代码:\n\`\`\`javascript\n${parsedResponse.code}\n\`\`\``;
                     this.conversationHistory.push({ role: 'user', content: feedback });

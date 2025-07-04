@@ -144,6 +144,41 @@ export const getSystemPrompt = () => {
 '---\n\n' +
 '**任务：将整数日期列 (如 20231231) 转换为标准日期字符串**\n' +
 '**描述**: 这是最健壮和推荐的方法。它将整数日期转换为`YYYY-MM-DD`格式的字符串，并**保持列为字符串类型**。这是为了规避Danfo.js内部`datetime`类型可能存在的不稳定性。\n' +
+'---\n\n' +
+'**任务：手动将宽表转换为长表 (替代 .melt())**\n' +
+'**描述**: 当需要将数据从每列代表一个类别的宽格式，转换为适合分组绘图的长格式时，请使用此方法。\n' +
+'**代码模板 (必须严格遵守)**:\n' +
+'```javascript\n' +
+'// 假设原始数据列为 ["月份", "产品A销售额", "产品B销售额"]\n' +
+'const df = new danfo.DataFrame(data);\n' +
+'\n' +
+'// 1. (可选) 重命名列，使其更简洁\n' +
+'const renamedDf = df.rename({ mapper: { "产品A销售额": "产品A", "产品B销售额": "产品B" } });\n' +
+'\n' +
+'// 2. 定义要转换的类别列名 (必须是重命名后的！)\n' +
+'const category_cols = ["产品A", "产品B"];\n' +
+'const id_col = "月份";\n' +
+'\n' +
+'// 3. 转换为原生JS对象数组\n' +
+'const rawData = danfo.toJSON(renamedDf);\n' +
+'const longData = [];\n' +
+'\n' +
+'// 4. 遍历每一行，为每个类别创建新行\n' +
+'rawData.forEach(row => {\n' +
+'  category_cols.forEach(product_name => {\n' +
+'    longData.push({\n' +
+'      [id_col]: row[id_col],       // 复制ID列\n' +
+'      "产品": product_name,          // 新的类别列的列名\n' +
+'      "销售量": row[product_name]    // **关键**: 直接用类别名作为键来获取对应的值\n' +
+'    });\n' +
+'  });\n' +
+'});\n' +
+'\n' +
+'// 5. 创建新的长格式 DataFrame\n' +
+'const finalDf = new danfo.DataFrame(longData);\n' +
+'const summary = { message: "已成功将数据转换为长格式。", transformed_head: danfo.toJSON(finalDf.head()) };\n' +
+'return { full_data: danfo.toJSON(finalDf), summary: summary };\n' +
+'```\n\n' +
 '**代码模板 (必须严格遵守)**:\n' +
 '```javascript\n' +
 '// 假设 df 是你的DataFrame, "date_col" 是整数日期列\n' +
@@ -232,59 +267,38 @@ export const getSystemPrompt = () => {
         '    cleaned_head: danfo.toJSON(df.head())\n' +
         '  };\n' +
         '  return { full_data: danfo.toJSON(df), summary: summary };\n\n' +
-'**2. `generate_chart_from_code`**: 编写JS代码来动态生成图表配置。\n' +
-'   - **黄金规则**: 在编写图表构造代码前，你**必须**仔细检查你上一步 `generate_code` 返回的 `summary`，并**严格使用** `summary` 中显示的**确切列名**。这是最常见的错误来源！\n' +
-'   - **示例 1 (简单动态标题):**\n' +
+'**2. `generate_chart_from_code`**: 编写JS代码生成图表，并提供**有数据支撑的**简短总结。这是分析的最后一步。\n' +
+'   - **黄金规则**: 在你的响应中，**必须同时包含 `code` 和 `final_report` 两个字段**。\n' +
+'   - **`code` 字段**: 包含生成 Plotly 图表配置的JS代码。\n' +
+'   - **`final_report` 字段**: **必须**提供一个**有数据支撑的简短结论**。你必须从图表中提取关键信息，例如：\n' +
+'     - **关键数据点**: 提及具体数值来支持你的结论。\n' +
+'     - **趋势/对比**: 描述图表中反映出的主要趋势或最显著的对比。\n' +
+'     - **禁止**只描述图表本身，而要**解读图表传达的信息**。\n' +
+'   - **示例:**\n' +
 'action: generate_chart_from_code\n' +
 'thought: |\n' +
-'  title: "生成图表构造代码"\n' +
-'  text: "数据已准备好。我将编写一段JS代码，它会根据数据点的数量动态生成图表标题。"\n' +
+'  title: "生成图表并总结"\n' +
+'  text: "数据已准备好，我将编写代码生成柱状图，并提供一个包含具体数据洞察的简短结论作为最终报告。"\n' +
 'code: |\n' +
 '  function createChartSpec(data) {\n' +
-'    const title = data.cities.length > 10 \n' +
-'      ? `销售额最高的 ${data.cities.length} 个城市` \n' +
-'      : \'按城市划分的销售额\';\n' +
-'    \n' +
-'    return {\n' +
-'      type: \'plotly\',\n' +
-'      data: [{ type: \'bar\', x: data.cities, y: data.sales }],\n' +
-'      layout: { title: title }\n' +
-'    };\n' +
-'  }\n' +
-'  return createChartSpec(data);\n\n' +
-'   - **示例 2 (复杂动态样式):**\n' +
-'action: generate_chart_from_code\n' +
-'thought: |\n' +
-'  title: "生成图表构造代码"\n' +
-'  text: "我将编写代码，根据销售额是否达到目标，为每个条形设置不同的颜色。我已确认上一轮的列名是 `季度` 和 `季度总销售额`。"\n' +
-'code: |\n' +
-'  function createChartSpec(data) {\n' +
-'    const target = 100000;\n' +
-'    // 严格使用上一轮 summary 中确认的列名\n' +
-'    const sales = data.map(item => item["季度总销售额"]);\n' +
 '    const quarters = data.map(item => item["季度"]);\n' +
-'    const colors = sales.map(sale => sale >= target ? \'#4CAF50\' : \'#FFC107\');\n' +
-'    \n' +
+'    const sales = data.map(item => item["季度总销售额"]);\n' +
 '    return {\n' +
 '      type: \'plotly\',\n' +
-'      data: [{\n' +
-'        type: \'bar\',\n' +
-'        x: quarters,\n' +
-'        y: sales,\n' +
-'        marker: { color: colors }\n' +
-'      }],\n' +
-'      layout: { title: \'各季度总销售额（绿色为达标）\' }\n' +
+'      data: [{ type: \'bar\', x: quarters, y: sales }],\n' +
+'      layout: { title: "各季度总销售额" }\n' +
 '    };\n' +
 '  }\n' +
-'  return createChartSpec(data);\n\n' +
-'**3. `analysis_complete`**: 结束分析并提供最终报告。\n' +
-        '   - **示例:**\n' +
-        'action: analysis_complete\n' +
-        'thought: |\n' +
-        '  title: "完成分析"\n' +
-        '  text: "我已经完成了所有分析和可视化，现在提交最终报告。"\n' +
-        'final_report: "本次分析显示了积极的销售趋势。关键指标已计算完毕，相关图表也已提供给用户查阅。"\n\n' +
-        '---\n\n' +
+'  return createChartSpec(data);\n' +
+'final_report: "根据图表，第三季度的销售额最高，达到了150万元，而第一季度的销售额最低，仅为60万元，显示出明显的季节性增长趋势。"\n\n' +
+'**3. `analysis_complete`**: (仅在不需要图表时使用) 结束分析并提供最终报告。\n' +
+'   - **示例:**\n' +
+'action: analysis_complete\n' +
+'thought: |\n' +
+'  title: "完成分析"\n' +
+'  text: "数据探索和计算已完成，任务不需要图表，现在我将提供最终结论。"\n' +
+'final_report: "已成功计算出所有学生的平均成绩为85.6分。"\n\n' +
+'---\n\n' +
 '### **如何处理代码执行反馈**\n\n' +
         '**1. 如果成功:**\n' +
 'Your code was executed successfully.\n\n' +
