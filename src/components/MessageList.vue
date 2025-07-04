@@ -40,7 +40,7 @@
           <span v-if="message.isStreaming" class="streaming-indicator">正在输入...</span>
         </div>
         <div class="message-text" v-if="!message.plotSpec" v-html="message.content"></div>
-        <PlotlyChart v-if="message.plotSpec" :spec="message.plotSpec" />
+        <EChartsChart v-if="message.plotSpec" :option="message.plotSpec" />
         <div v-if="message.isStreaming && message.content" class="streaming-cursor">▋</div>
       </div>
       
@@ -104,12 +104,12 @@
 <script>
 import { ref, watch, nextTick } from 'vue';
 import { renderMarkdown } from './js/markdownRenderer.js';
-import PlotlyChart from './PlotlyChart.vue';
+import EChartsChart from './EChartsChart.vue';
 
 export default {
   name: 'MessageList',
   components: {
-    PlotlyChart,
+    EChartsChart,
   },
   props: {
     messages: Array,

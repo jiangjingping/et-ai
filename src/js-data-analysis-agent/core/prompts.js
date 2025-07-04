@@ -23,7 +23,7 @@ export const getSystemPrompt = () => {
 '- **禁止使用不存在的函数**: 严禁使用速查表中未列出的函数。例如，`danfo.to_datetime` 函数不存在，不要使用它。\n' +
 '- **JS语法细节**: 注意JavaScript的语法细节，例如模板字符串必须使用反引号 `` `${...}` ``。\n' +
         '- **代码在 Web Worker 中执行**: 你无法访问DOM、window或任何浏览器特有的API（如 \'fetch\'）。所有代码必须是自包含的。\n' +
-        '- **绘图由主线程处理**: 要创建图表，你必须使用 `generate_chart_from_code` 动作。此动作需要你编写一段JS代码，该代码的返回结果必须是一个完整的、符合Plotly格式的图表 `spec` 对象。\n' +
+'- **绘图由主线程处理**: 要创建图表，你必须使用 `generate_chart_from_code` 动作。此动作需要你编写一段JS代码，该代码的返回结果必须是一个完整的、符合ECharts格式的图表 `option` 对象。\n' +
         '- **错误处理**: 当你收到代码执行失败的反馈时，你的首要任务是仔细分析错误信息和导致错误的代码，然后生成一段修正后的新代码。不要重复同样的错误。\n' +
         '- **返回JSON (极其重要!)**: 你的 `generate_code` 代码块**必须**返回一个包含两个键的JSON对象：`{ full_data: ..., summary: ... }`。\n' +
         '  - `full_data`: **必须是**经过 `danfo.toJSON()` 转换后的**完整**DataFrame。这是为了在不同步骤间传递完整的数据状态。\n' +
@@ -269,7 +269,7 @@ export const getSystemPrompt = () => {
         '  return { full_data: danfo.toJSON(df), summary: summary };\n\n' +
 '**2. `generate_chart_from_code`**: 编写JS代码生成图表，并提供**有数据支撑的**简短总结。这是分析的最后一步。\n' +
 '   - **黄金规则**: 在你的响应中，**必须同时包含 `code` 和 `final_report` 两个字段**。\n' +
-'   - **`code` 字段**: 包含生成 Plotly 图表配置的JS代码。\n' +
+'   - **`code` 字段**: 包含生成 ECharts `option` 对象的JS代码。\n' +
 '   - **`final_report` 字段**: **必须**提供一个**有数据支撑的简短结论**。你必须从图表中提取关键信息，例如：\n' +
 '     - **关键数据点**: 提及具体数值来支持你的结论。\n' +
 '     - **趋势/对比**: 描述图表中反映出的主要趋势或最显著的对比。\n' +
@@ -280,16 +280,26 @@ export const getSystemPrompt = () => {
 '  title: "生成图表并总结"\n' +
 '  text: "数据已准备好，我将编写代码生成柱状图，并提供一个包含具体数据洞察的简短结论作为最终报告。"\n' +
 'code: |\n' +
-'  function createChartSpec(data) {\n' +
+'  function createChartOption(data) {\n' +
 '    const quarters = data.map(item => item["季度"]);\n' +
 '    const sales = data.map(item => item["季度总销售额"]);\n' +
 '    return {\n' +
-'      type: \'plotly\',\n' +
-'      data: [{ type: \'bar\', x: quarters, y: sales }],\n' +
-'      layout: { title: "各季度总销售额" }\n' +
+'      title: { text: "各季度总销售额" },\n' +
+'      tooltip: {},\n' +
+'      xAxis: {\n' +
+'        type: \'category\',\n' +
+'        data: quarters\n' +
+'      },\n' +
+'      yAxis: {\n' +
+'        type: \'value\'\n' +
+'      },\n' +
+'      series: [{\n' +
+'        data: sales,\n' +
+'        type: \'bar\'\n' +
+'      }]\n' +
 '    };\n' +
 '  }\n' +
-'  return createChartSpec(data);\n' +
+'  return createChartOption(data);\n' +
 'final_report: "根据图表，第三季度的销售额最高，达到了150万元，而第一季度的销售额最低，仅为60万元，显示出明显的季节性增长趋势。"\n\n' +
 '**3. `analysis_complete`**: (仅在不需要图表时使用) 结束分析并提供最终报告。\n' +
 '   - **示例:**\n' +
