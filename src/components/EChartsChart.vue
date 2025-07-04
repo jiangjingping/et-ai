@@ -4,26 +4,8 @@
 
 <script>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import * as echarts from 'echarts/core';
-import {
-  TitleComponent,
-  TooltipComponent,
-  GridComponent,
-  LegendComponent,
-} from 'echarts/components';
-import { BarChart, LineChart } from 'echarts/charts';
-import { CanvasRenderer } from 'echarts/renderers';
-
-// 按需引入 ECharts 组件
-echarts.use([
-  TitleComponent,
-  TooltipComponent,
-  GridComponent,
-  LegendComponent,
-  BarChart,
-  LineChart,
-  CanvasRenderer,
-]);
+// 修复：直接导入完整的 ECharts 包，以支持所有图表类型
+import * as echarts from 'echarts';
 
 export default {
   name: 'EChartsChart',
