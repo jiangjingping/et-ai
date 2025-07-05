@@ -60,6 +60,19 @@ class AppConfigManager {
                 temperature: 0.7,
                 topP: 0.9
             },
+            'qwen2.5-72b-instruct': {
+                id: 'qwen2.5-72b-instruct',
+                name: '通义千问 2.5-72B',
+                provider: 'Alibaba',
+                baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                model: 'qwen2.5-72b-instruct',
+                apiKey: import.meta.env.VITE_QWEN_API_KEY || '',
+                description: '阿里云通义千问2.5版本，720亿参数的大语言模型，性能强大。',
+                isPreset: true,
+                maxTokens: 16000,
+                temperature: 0.7,
+                topP: 0.9
+            },
             'gpt-4': {
                 id: 'gpt-4',
                 name: 'GPT-4',

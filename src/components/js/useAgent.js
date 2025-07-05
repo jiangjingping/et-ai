@@ -70,6 +70,7 @@ export function useAgent(messages, addUserMessage, addSystemMessage) {
                     }
                     break;
                 }
+                case 'plot': // Add this case
                 case 'code_start':
                     currentRoundMessage.steps.push({ 
                         type: 'code', 

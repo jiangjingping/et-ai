@@ -106,7 +106,7 @@ export class JsDataAnalysisAgent {
                 }
             } else if (parsedResponse.action === 'generate_chart_from_code') {
                 const codeToExecute = parsedResponse.code;
-                onProgress({ type: 'plot', round: currentRound, content: '正在生成图表...' });
+                onProgress({ type: 'plot', round: currentRound, content: codeToExecute });
                 try {
                     const result = await this.executeInWorker(codeToExecute, workingData);
                     finalResult.plotSpec = result.data;
