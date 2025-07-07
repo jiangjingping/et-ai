@@ -1,0 +1,28 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnWPSWorkTabLoad" >
+  <ribbon startFromScratch="false">
+    <tabs>
+      <tab id="WPSWorkExtTab" label="OA助手" getVisible="OnGetVisible">	<!-- OA菜单开启显隐处理-->
+        <group id="OAEntryGroup" label="OA常用功能">
+          <button id="btnSaveToServer" label="保存到OA" onAction="OnAction" 
+              getEnabled="OnGetEnabled" getImage="GetImage" size="large"/>
+          <button id="btnSaveAsFile" label="保存本地" getLabel="OnGetLabel"  onAction="OnAction"  
+              getEnabled="OnGetEnabled" getVisible="OnGetVisible" getImage="GetImage" size="large" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+  <commands>
+        <command idMso="FileSaveAs" label="另存为"  onAction="OnAction"/>
+        <command idMso="FileSaveAsMenu" label="另存为"  onAction="OnAction" getEnabled="OnGetEnabled"/> 
+        <!-- <command idMso="FileSave" label="保存" getEnabled="OnGetEnabled" onAction="onAction"/> -->
+  </commands>
+
+  <classic>
+    <toolbars>
+      <toolbar id="WPSWorkExtTab" label="OA助手" enabled="true" getVisible="OnGetVisible" >
+        <button id="btnSaveToServer" label="保存到OA" onAction="OnAction" getEnabled="OnGetEnabled" getImage="GetImage" size="large"/>
+        <button id="btnSaveAsFile" label="保存本地" onAction="OnAction" getEnabled="OnGetEnabled" getImage="GetImage" size="large"/>
+      </toolbar>
+    </toolbars>
+  </classic>
+</customUI>
