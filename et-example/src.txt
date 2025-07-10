@@ -1,0 +1,303 @@
+addMsgResponse(msg) {
+    const response = {};
+    response.type = "response";
+    response.optionType = vm.optionType;
+    response.errorArr = [];
+    response.quit = false;
+    response.msg = msg;
+    response.htmlMsg = "";
+    response.operateType = -1;
+    response.isConfirm = true;
+    response.thinkExpend = true;
+    response.think = "";
+    response.thinkLoading = true;
+    response.authFlag = vm.authFlag;
+    this.info.push(response);
+}
+
+var vm = new Vue({
+  el: '#app',
+  data: {
+    componentText: '',
+    componentDirect: 'right',
+    info: [],
+    inputVal: "",
+    loading: false,
+    jiaoduiLimitFlag: false,
+    showMenu: false,
+    fedbackParam: {
+      answer: '',
+      question: '',
+      functionType: -1,
+      operateType: -1
+    },
+    continueLimit: 4000,
+    inputLimit: 4000,
+    userName: "",
+    deptName: "",
+    deptNameSetMsg: "",
+    showSplitTable: false,
+    inputSplitTable: '',
+    inputOpinion: '',
+    inputSearch: '',
+    showOpinion: false,
+    showSearch: false,
+    deptFlag: false,
+    isAIAssw: true,
+    answerType: '',
+    optionType: '', // correction纠错
+    showAddQuestion: false,
+    questionTitle: '',
+    questionContent: '',
+    nowEditQuestionItem: null,
+    saveQuestionArr: [],
+    showSaveQuestion: false
+  },
+  // isAnalysisGraph:false
+  // isAnalysisGraph: false
+
+created() {
+  this.initTxtStorage()
+},
+
+mounted() {
+  // const urlParams = new URLSearchParams { window.location.search };
+  // const contentParam = urlParams.get('content') || 'Default Text';
+  // const funcParam = urlParams.get('function');
+  // this.handleJumping(contentParam, funcParam);
+  
+  var token;
+  try {
+    token = getToken();
+  } catch(err) {
+    console.log("-------token get err--------");
+  }
+  if(!token){
+    window.location.href = "pandAILogin.html";
+  }
+  
+  this.getLimitParam();
+  this.scollBottom();
+  this.userName = getUserName();
+  this.showUpdate();
+  
+  setTimeout(() => {
+    document.getElementById('app').style.opacity = '1';
+    // 个人知识库测试
+    // this.authPersonalData(true)
+    
+    // 当前文档存在不是中文的，翻译语种是中文
+    // let text = wps.ActiveDocument.Content.Text
+    // text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7f-\x9f]/g,"");
+    // 只要没有中文就是中文
+    // if (!/[\u4E00-\u9FFF]/.test(text)) {
+    //   this.value4 = 1
+    // }
+  }, 0);
+},
+
+updated() {
+  if(this.noScroll) {
+    this.noScroll = false
+  }
+  this.scollBottom();
+},
+/**
+ * 
+ */
+//文本生成
+async textGenerate(question, fromUser) {
+    this.loading = true;
+    this.optionType = '';
+    console.log('this.optionType', this.optionType);
+    
+    const msg = {};
+    msg.msg = question;
+    msg.type = "question";
+
+    // 是否是用户输入对话的聊天内容
+    if (fromUser) {
+        msg.fromUser = true;
+    }
+    this.info.push(msg);
+
+    const isAvaliable = await checkVersionAndAvaliable();
+    if (isAvaliable === false) {
+        return;
+    }
+
+    this.feddbackParam.question = question;
+    this.feddbackParam.functionType = 1;
+
+    let prompt;
+    const generating = this.$message({
+        message: '正在解析中，请耐心等待...',
+        type: 'warning',
+        duration: 0,
+        offset: 80
+    });
+
+    setTimeout(async () => {
+        if (this.isAAnswer) {
+            const sheet = wps.EtApplication().ActiveSheet;
+            const UsedRange = sheet.UsedRange;
+            const rowCount = UsedRange.Rows.Count;
+            const colCount = UsedRange.Columns.Count;
+
+            let maxRow = 0;
+            let maxCol = 0;
+
+            // 计算最大行和最大列
+            for (let row = 1; row <= rowCount; row++) {
+                const lastRow = sheet.Cells.Item(row, sheet.Columns.Count).End(-4159).column;
+                if (lastRow > maxCol) maxCol = lastRow;
+            }
+            for (let col = 1; col <= colCount; col++) {
+                const lastColumn = sheet.Cells.Item(sheet.Rows.Count, col).End(-4162).row;
+                if (lastColumn > maxRow) maxRow = lastColumn;
+            }
+
+            const dataRange = sheet.Range(sheet.Cells.Item(1, 1), sheet.Cells.Item(maxRow, maxCol));
+            var selectSheet = dataRange.Value2;
+            console.log('selectSheet', selectSheet);
+            
+            const selectSheetData = JSON.stringify(selectSheet, null, 2);
+            prompt = `作为一个Excel表格分析助手，请根据以下表格数据执行任务。任务需求是：${question}。
+            
+- 数据格式说明：表格有${maxRow}行，${maxCol}列，每行数据包含行号（从1开始）、列名和对应单元格值，空单元格以null表示
+- 表格数据是二维数组：${selectSheetData}`;
+        } else {
+            prompt = `任务需求是：${question}`;
+        }
+
+        console.log('prompt', prompt);
+        console.log('prompt.length', prompt.length);
+
+        if (prompt.length >= 25000) {
+            this.$message.warning('由于目前大模型能力有限，输送给大模型的总字数需小于25000，请裁剪部分表格后再试');
+            this.addMsgResponse("由于目前大模型能力有限，输送给大模型的总字数需小于25000，请裁剪部分表格后再试");
+            this.loading = false;
+            return;
+        }
+
+        const params = {
+            'question': prompt, // 问题
+        };
+        console.log('params', params);
+        
+        generating.close();
+        this.addMsgResponse("正在生成...");
+        await getContentRes("/archive-general/api/v1/archiveAiWrite/get/content", params);
+    }, 0);
+}
+async function getContentRes(url, params) {
+  try {
+    // params.thinkBool = '02'  // 可选参数（原被注释）
+    console.log("myfunction");
+    
+    let output = "";
+    const response = await fetchrequest(url, params);
+    const lastMsg = vm.info[vm.info.length - 1];
+    
+    // 初始化响应对象
+    lastMsg.msg = "";
+    lastMsg.optionType = vm.optionType;
+    
+    if (!response || !response.body) return;
+    
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let isThinking = null; // 思考模式状态
+    
+    while (true) {
+      const { value, done } = await reader.read();
+      
+      // 流读取结束处理
+      if (done) {
+        // 处理空响应
+        const cleanedOutput = output.replace("data:", "").replace("\n\n", "");
+        if (cleanedOutput === "") {
+          lastMsg.isConfirm = true;
+          lastMsg.msg = "生成结果出错，返回为空";
+        } else {
+          lastMsg.isConfirm = false;
+        }
+        
+        // 更新状态并清理
+        vm.feddbackParam.answer = lastMsg.msg;
+        vm.$forceUpdate();
+        vm.loading = false;
+        controller.abort();
+        controller = new AbortController();
+        break;
+      }
+      
+      // 解码处理数据
+      const chunk = decoder.decode(value);
+      output += chunk;
+      output = output.replace(/\n\ndata:/g, "");
+      let msg = output.replace("data:", "").replace(/\n\n$/g, "");
+      
+      // 特殊标记处理
+      if (msg.indexOf(':duolun') > -1) {
+        const segments = msg.split(':duolun');
+        msg = segments[segments.length - 1];
+      }
+      
+      // 有效消息处理
+      if (msg !== "") {
+        const val = vm.info[vm.info.length - 1];
+        
+        // DeepSeek思考模式处理
+        // 1. 思考模式开启检测
+        if (isThinking === null && msg.indexOf('<think>') > -1) {
+          isThinking = true;
+        }
+        
+        // 2. 思考中内容提取
+        if (isThinking) {
+          val.think = msg.replace('<think>', ' ');
+        }
+        
+        // 3. 思考结束检测
+        if (isThinking === true && msg.indexOf('</think>') > -1) {
+          const thoughtContent = msg.split('</think>')[0]
+            .replace('<think>', ' ')
+            .replace('</think>', ' ');
+          val.think = thoughtContent;
+          val.thinkExpend = false;
+          isThinking = false;
+        }
+        
+        // 4. 思考结束后消息处理
+        if (isThinking === false) {
+          msg = msg.split('<think>')[1] || '';
+          val.msg = msg;
+          val.htmlMsg = markdownHtml(msg);
+          
+          // 临时响应处理
+          if (!done) {
+            vm.middleResponseDataSet(msg);
+          }
+        }
+        
+        // 更新思考状态
+        val.thinkLoading = isThinking;
+        vm.$forceUpdate();
+      }
+    }
+  } catch (e) {
+    console.log("err", e);
+    vm.loading = false;
+    
+    // 非主动取消的错误处理
+    if (e.name !== "AbortError") {
+      const msg = vm.info[vm.info.length - 1];
+      if (msg.msg === "正在生成...") {
+        msg.msg = "";
+      }
+      msg.outTime = true;
+    }
+  }
+}
+})

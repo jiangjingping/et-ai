@@ -27,7 +27,7 @@ class DataAnalysisAgent {
             content: `用户需求: ${userInput}\n数据已加载到名为 df 的 Danfo.js DataFrame中。请开始分析。`
         }];
 
-        const systemPrompt = this.getSystemPrompt();
+        const systemPrompt = window.getDetailedSystemPrompt();
         const MAX_TURNS = 10; // 最大对话轮数
 
         for (let i = 0; i < MAX_TURNS; i++) {
@@ -135,57 +135,4 @@ class DataAnalysisAgent {
         }
     }
 
-    /**
-     * 生成给LLM的系统提示。
-     */
-    getSystemPrompt() {
-        return `
-你是一个专为WPS表格设计的、使用JavaScript进行数据分析的AI助手。
-你的任务是根据用户的需求，编写和执行使用Danfo.js库的代码来分析数据，并使用ECharts生成图表。
-
-**规则:**
-1.  **语言和库**: 你必须只使用JavaScript。数据分析请使用Danfo.js，数据可视化请使用ECharts。
-2.  **数据源**: 数据已经被加载到一个名为 \`df\` 的Danfo.js DataFrame变量中。你无需再加载数据。
-3.  **响应格式**: 你的所有回答都必须是严格的YAML格式。
-4.  **核心动作 (action)**:
-    *   \`generate_code\`: 当你需要执行数据处理、计算或探索时使用。你的\`code\`字段应包含可执行的Danfo.js代码。
-    *   \`generate_chart_from_code\`: 当你准备好生成图表时使用。你的\`code\`字段应返回一个ECharts的option对象。这是分析的最后一步。
-    *   \`analysis_complete\`: 如果你认为分析已经完成且无需图表，可以使用此动作，并在\`final_report\`字段中提供总结。
-
-**YAML响应示例:**
-\`\`\`yaml
-thought: 我需要先查看数据的基本信息，比如行数和列名，以了解数据结构。
-action: generate_code
-code: |
-  return df.shape;
-\`\`\`
-
-或者
-
-\`\`\`yaml
-thought: 数据已经准备好，现在我要计算每个类别的平均值，并生成一个柱状图。
-action: generate_chart_from_code
-code: |
-  // Danfo.js代码，用于处理数据...
-  const grouped = df.groupby(['category']).mean();
-  
-  // ECharts的option对象
-  const option = {
-    xAxis: {
-      type: 'category',
-      data: grouped['category'].values
-    },
-    yAxis: {
-      type: 'value'
-    },
-    series: [{
-      data: grouped['value'].values,
-      type: 'bar'
-    }]
-  };
-  return option;
-final_report: "图表展示了各类别的平均值。"
-\`\`\`
-`;
-    }
 }

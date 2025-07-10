@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>熊猫AI</title>
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+<script type="text/javascript” src='js/main.js'></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 聊天内容区域 -->
+        <div id="chat-content" class="chat-content">
+            <!-- 消息循环渲染 -->
+            <div v-for="(item, index) in info" :key="index" class="msg">
+                
+                <!-- AI回复消息 -->
+                <div v-if="item.type === 'response'" class="bubbleResponse">
+                    <div class="bubbleLeft">
+                        <!-- 思考区域 -->
+                        <div class="think" v-if="item.authFlag">
+                            <span @click="thinkExpendChange(item)" class="thinkExpendBtn">
+                                {{ item.thinkLoading ? "思考中" : "思考完成" }}
+                            </span>
+                            <div v-show="item.thinkExpend" class="thinkContent">
+                                {{ item.think }}
+                            </div>
+                        </div>
+
+                        <!-- 普通文本消息 -->
+                        <div v-else class="bubbleText">
+                            <div v-html="item.htmlMsg || item.msg"></div>
+                        </div>
+                    </div>
+
+                    <!-- 状态提示 -->
+                    <div v-if="item.quit" class="quitText">
+                        <span>已停止生成</span>
+                    </div>
+                    <div v-if="item.outTime" class="quitText">
+                        <span>获取生成结果超时</span>
+                    </div>
+
+                    <!-- 加载动画 -->
+                    <div v-if="loading && index === info.length-1" class="loadingDiv">
+                        <img id="loading" src="icon/pandaAI/loading.gif">
+                    </div>
+
+                    <!-- 停止生成按钮 -->
+                    <div v-if="loading && index === info.length-1" 
+                         class="cancleImg" 
+                         @click="cancleQuest">
+                        <span>停止生成</span>
+                    </div>
+                </div>
+
+                <!-- 用户提问 -->
+                <div v-if="item.type === 'question'" class="bubbleRight">
+                    <span>{{item.msg}}</span>
+                </div>
+            </div>
+
+            <!-- 底部提示 -->
+            <div v-if="info.length !== 0" id="prompt">
+                AI生成的内容仅供参考，请注意甄别信息的准确性
+            </div>
+        </div>
+
+        <!-- 底部输入区域 -->
+        <section>
+            <div id="content-input" @click="showMenuFun" :class="{ 'disable-div': loading }">
+                <div class="optionBtns" :class="{ disabled: loading }">
+                    <span @click="analysisTable()">
+                        <img src="./icon/pandaAI/option_write.svg">
+                        <a>分析报告</a>
+                    </span>
+                </div>
+                
+                <textarea 
+                    v-model="inputMsg" 
+                    :disabled="loading" 
+                    placeholder="输入内容..."
+                    @keyup.enter="sendMsg">
+                </textarea>
+                
+                <div class="send-bar">
+                    <span @click="clearInput">清空</span>
+                    <span @click="sendMsg">发送</span>
+                </div>
+            </div>
+        </section>
+    </div>
