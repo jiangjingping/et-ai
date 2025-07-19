@@ -20,7 +20,26 @@ class DataAnalysisAgent {
         console.log("代理：开始分析...");
         this.onProgress({ type: 'system', content: '分析流程启动...' });
 
-        let df = new dfd.DataFrame(data); // 使用 'let' 以便后续可以重新赋值
+        // 采用更健壮的方式创建DataFrame，手动分离列名和数据
+        const columns = data[0];
+        const rows = data.slice(1);
+        let df = new dfd.DataFrame(rows, { columns: columns });
+        // 数据探索的第一步：检查前几行数据
+        df.head().print();
+
+        // 获取列名列表
+        console.log("列名：", df.columns);
+
+        // 检查每列的缺失值数量
+        df.isNa().sum().print();
+
+        // 获取描述性统计信息，并用try...catch包裹以增加健壮性
+        try {
+            console.log("描述性统计：");
+            df.describe().print();
+        } catch (e) {
+            console.warn("df.describe() 执行失败，可能因为数据中存在非数值类型或无法处理的null值。", e.message);
+        }
         
         this.conversationHistory = [{
             role: 'user',
@@ -38,7 +57,21 @@ class DataAnalysisAgent {
 
             let parsedResponse;
             try {
-                parsedResponse = jsyaml.load(llmResponse);
+                // 预处理步骤：从LLM响应中提取纯净的YAML代码块
+                const yamlRegex = /```yaml\n([\s\S]*?)\n```/;
+                const match = llmResponse.match(yamlRegex);
+                
+                let cleanYaml;
+                if (match && match[1]) {
+                    cleanYaml = match[1];
+                } else {
+                    // 如果没有找到标记，则假定整个响应都是YAML（为了兼容性）
+                    cleanYaml = llmResponse;
+                }
+                
+                console.log("待解析的yaml：", cleanYaml);
+                parsedResponse = jsyaml.load(cleanYaml);
+
                 if (!parsedResponse || !parsedResponse.action) {
                     throw new Error("响应中缺少 'action' 字段。");
                 }
@@ -119,12 +152,14 @@ class DataAnalysisAgent {
         console.log("代理：正在执行代码...", code);
         this.onProgress({ type: 'system', content: `执行代码:\n${code}` });
         try {
-            // 使用 new Function 来更安全地执行代码（相比eval）
-            // 该函数可以访问 'df' (当前的DataFrame) 和 'dfd' (Danfo.js库)
+            // 注入 'df' 和 'dfd' (正确的Danfo.js全局变量名)
             const func = new Function('df', 'dfd', `
-                const dataframe = df; // 为了向后兼容，以防LLM使用'dataframe'变量名
+                // 为了向后兼容，让 'danfo' 和 'dataframe' 也可用
+                const danfo = dfd;
+                const dataframe = df;
                 ${code}
             `);
+            // 将当前的df对象和全局的dfd对象传入
             const result = await func(df, dfd);
             
             return { success: true, data: result };

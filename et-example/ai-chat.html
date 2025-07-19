@@ -25,8 +25,9 @@
         .option-btns button.active { background-color: #4caf50; color: white; border-color: #4caf50; }
         .textarea-wrapper { padding: 10px 15px; }
         .textarea-wrapper textarea { width: 100%; border: none; outline: none; resize: none; font-size: 1em; height: 60px; }
-        .send-bar { display: flex; justify-content: flex-end; padding: 0 15px 10px 15px; }
-        .send-bar button { border: none; background-color: #4a90e2; color: white; padding: 8px 20px; border-radius: 5px; cursor: pointer; }
+        .send-bar { display: flex; justify-content: flex-end; align-items: center; padding: 0 15px 10px 15px; }
+        .send-bar button { border: none; background-color: #4a90e2; color: white; padding: 8px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        .send-bar button.stop-btn { background-color: #e94b3c; }
     </style>
 </head>
 <body>
@@ -65,7 +66,8 @@
             <textarea v-model="inputVal" placeholder="请输入内容..." @keyup.enter.prevent="sendMessage"></textarea>
         </div>
         <div class="send-bar">
-            <button @click="sendMessage">发送</button>
+            <button  @click="stopGeneration" class="stop-btn">停止</button>
+            <button @click="sendMessage" :disabled="loading">发送</button>
         </div>
     </section>
 </div>
@@ -92,12 +94,22 @@
             ActiveSheet: {
                 Selection: {
                     Value: () => [
-                        ["类别", "销售额", "利润"],
-                        ["电子产品", 5000, 1500],
-                        ["服装", 8000, 2500],
-                        ["食品", 12000, 3000],
-                        ["电子产品", 6000, 1800],
-                        ["服装", 7500, 2200],
+                        ["订单ID", "订单日期", "产品类别", "产品名称", "单价", "数量", "总价", "客户评分", "地区"],
+                        ["ORD001", 20230115, "电子产品", "智能手机", 5000, 2, "￥10,000", 4.5, "华东"],
+                        ["ORD002", 20230116, "服装", "羽绒服", 800, 1, "￥800", 4.8, "华北"],
+                        ["ORD003", 20230117, "家居用品", "智能台灯", 350, 5, "￥1,750", 4.2, "华南"],
+                        ["ORD004", 20230201, "电子产品", "笔记本电脑", 8500, 1, "￥8,500", 4.9, "华东"],
+                        ["ORD005", 20230203, "食品", "进口牛肉", 200, 10, "￥2,000", null, "华北"],
+                        ["ORD006", 20230205, "服装", "运动鞋", 600, 3, "￥1,800", 4.6, "华中"],
+                        ["ORD007", 20230310, "电子产品", "无线耳机", 1200, 2, "￥2,400", 4.7, "华东"],
+                        ["ORD008", 20230312, "家居用品", "记忆棉枕头", 300, 4, "￥1,200", 4.3, "西南"],
+                        ["ORD009", 20230315, "服装", "牛仔裤", 450, 2, "￥900", 4.4, "华北"],
+                        ["ORD010", 20230401, "食品", "有机蔬菜包", 150, 20, "￥3,000", 5, "华东"],
+                        ["ORD011", 20230402, "电子产品", "智能手表", 2500, 3, "￥7,500", null, "华南"],
+                        ["ORD012", 20230405, "服装", "T恤", 180, 10, "￥1,800", 4.1, "华中"],
+                        ["ORD013", 20230510, "家居用品", "吸尘器", 1500, 1, "￥1,500", 4.8, "华北"],
+                        ["ORD014", 20230512, "电子产品", "平板电脑", 4000, 2, "￥8,000", 4.6, "西南"],
+                        ["ORD015", 20230520, "食品", "坚果礼盒", 250, 8, "￥2,000", 4.9, "华南"]
                     ]
                 }
             }
@@ -111,6 +123,7 @@
             inputVal: "", // 输入框内容
             loading: false, // 是否正在加载
             isAnalysisMode: false, // 是否为数据分析模式
+            stopRequested: false, // 标记是否请求停止
             chartInstance: null, // ECharts 实例
         },
         mounted() {
@@ -154,8 +167,9 @@
             // 发送消息的总入口
             sendMessage() {
                 const messageText = this.inputVal.trim();
-                if (!messageText) return;
+                if (!messageText || this.loading) return;
 
+                this.stopRequested = false; // 重置停止请求标记
                 this.info.push({ type: 'question', msg: messageText });
                 this.inputVal = '';
 
@@ -164,6 +178,12 @@
                 } else {
                     this.textGenerate(messageText);
                 }
+            },
+            // 停止生成
+            stopGeneration() {
+                this.stopRequested = true;
+                this.loading = false; // 立即禁用按钮，防止重复点击
+                console.log("已请求停止生成。");
             },
             // 文本生成/简单问答的入口
             async textGenerate(question) {
@@ -217,6 +237,7 @@
             },
             // 核心：还原src.txt中的流式请求函数
             async getContentRes(params, onComplete) {
+                let reader; // 将reader提升到外部作用域
                 try {
                     // 真实、可工作的fetchrequest函数
                     const fetchrequest = async (url, params) => {
@@ -282,12 +303,20 @@
 
                     if (!response || !response.body) return;
 
-                    const reader = response.body.getReader();
+                    reader = response.body.getReader();
                     const decoder = new TextDecoder('utf-8');
                     let output = "";
                     let isThinking = null;
 
                     while (true) {
+                        if (this.stopRequested) {
+                            console.log("检测到停止请求，正在中止读取...");
+                            await reader.cancel("用户手动停止");
+                            this.addMsgResponse({ msg: "[任务已手动停止]" });
+                            this.loading = false;
+                            break;
+                        }
+
                         const { value, done } = await reader.read();
                         if (done) {
                             if (onComplete) onComplete(output);
@@ -322,9 +351,17 @@
                         }
                     }
                 } catch (e) {
-                    console.error("流式请求错误:", e);
+                    if (e.name === 'AbortError' || e.message === "用户手动停止") {
+                        console.log("Fetch请求已成功中止。");
+                    } else {
+                        console.error("流式请求错误:", e);
+                        this.addMsgResponse({ msg: `请求出错: ${e.message}` });
+                    }
                     this.loading = false;
-                    this.addMsgResponse({ msg: `请求出错: ${e.message}` });
+                } finally {
+                    if (reader && this.stopRequested) {
+                        reader.releaseLock();
+                    }
                 }
             },
             // 处理Agent的进度回调
