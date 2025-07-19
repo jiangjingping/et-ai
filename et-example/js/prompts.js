@@ -230,14 +230,19 @@ window.getDetailedSystemPrompt = () => {
 'action: generate_code\n' +
 'thought: |\n' +
 '  title: "数据探索"\n' +
-'  text: "第一步是数据探索。我将直接使用预先定义好的`df`对象，并调用 `head`, `describe`, 和 `isNa` 函数来了解数据概况。"\n' +
-'code: |\n' +
-'  // 注意：df 已经存在，无需创建。\n' +
-'  // 我只需要执行探索操作并返回df本身。\n' +
-'  df.head().print();\n' +
-'  df.describe().print();\n' +
-'  df.isNa().sum().print();\n' +
-'  return df;\n\n' +
+'  text: "第一步是数据探索。我将创建DataFrame，并使用速查表中的 `head`, `describe`, 和 `isNa` 函数来了解数据概况。"\n' +
+'  code: |\n' +
+        '  const df = new dfd.DataFrame(data);\n' +
+        '  const head = dfd.toJSON(df.head(5));\n' +
+        '  const describe = dfd.toJSON(df.describe());\n' +
+        '  const missing_values = dfd.toJSON(df.isNa().sum());\n' +
+        '  const summary = { \n' +
+        '    message: "数据探索完成。初步分析了数据结构、统计摘要和缺失值情况。",\n' +
+        '    head: head,\n' +
+        '    describe: describe,\n' +
+        '    missing_values: missing_values\n' +
+        '  };\n' +
+        '  return { full_data: dfd.toJSON(df), summary: summary };\n\n' +
 '   - **示例 2 (数据清洗):**\n' +
 'action: generate_code\n' +
 'thought: |\n' +

@@ -20,30 +20,19 @@ class DataAnalysisAgent {
         console.log("代理：开始分析...");
         this.onProgress({ type: 'system', content: '分析流程启动...' });
 
-        // 采用更健壮的方式创建DataFrame，手动分离列名和数据
-        const columns = data[0];
-        const rows = data.slice(1);
-        let df = new dfd.DataFrame(rows, { columns: columns });
-        // 数据探索的第一步：检查前几行数据
-        df.head().print();
+        // Danfo.js可以直接处理JSON数组，这是更现代和健astrong的方式。
+        let df = new dfd.DataFrame(data);
 
-        // 获取列名列表
-        console.log("列名：", df.columns);
-
-        // 检查每列的缺失值数量
-        df.isNa().sum().print();
-
-        // 获取描述性统计信息，并用try...catch包裹以增加健壮性
-        try {
-            console.log("描述性统计：");
-            df.describe().print();
-        } catch (e) {
-            console.warn("df.describe() 执行失败，可能因为数据中存在非数值类型或无法处理的null值。", e.message);
+        // 新增的预处理步骤：全局将 null 替换为 NaN，确保数值计算的健壮性
+        for (const col of df.columns) {
+            const aSeries = df[col];
+            const newValues = aSeries.values.map(v => v === null ? NaN : v);
+            df.addColumn(col, newValues, { inplace: true });
         }
-        
+
         this.conversationHistory = [{
             role: 'user',
-            content: `用户需求: ${userInput}\n数据已加载到名为 df 的 Danfo.js DataFrame中。请开始分析。`
+            content: `用户需求: ${userInput}\n数据已加载到名为 df 的 Danfo.js DataFrame中，并且null值已被自动替换为NaN。请开始分析。`
         }];
 
         const systemPrompt = window.getDetailedSystemPrompt();
