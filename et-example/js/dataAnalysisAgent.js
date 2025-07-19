@@ -78,14 +78,22 @@ class DataAnalysisAgent {
                     const codeResult = await this.executeCode(parsedResponse.code, df);
                     let feedback;
                     if (codeResult.success) {
-                        // 如果代码返回了一个新的DataFrame，则更新我们正在使用的df
-                        if (codeResult.data instanceof dfd.DataFrame) {
+                        // 智能处理AI返回的结果
+                        if (codeResult.data && typeof codeResult.data === 'object' && 'full_data' in codeResult.data) {
+                            // 方案A: AI返回了 { full_data, summary } 结构
+                            // 从 full_data (JSON格式) 重建DataFrame以更新状态
+                            df = new dfd.DataFrame(codeResult.data.full_data);
+                            // 使用 summary 部分生成反馈信息
+                            const summaryStr = JSON.stringify(codeResult.data.summary, null, 2);
+                            feedback = `代码执行成功。\n输出摘要:\n\`\`\`json\n${summaryStr}\n\`\`\`\n请继续下一步分析。`;
+                        } else if (codeResult.data instanceof dfd.DataFrame) {
+                            // 方案B: AI直接返回了DataFrame对象 (兼容旧prompt)
                             df = codeResult.data;
                             feedback = `代码执行成功。DataFrame已更新，新的shape为: ${df.shape}. 请继续下一步分析。`;
                         } else {
-                            // 对于其他类型的结果，直接显示结果字符串
+                            // 方案C: AI返回了其他未知类型的结果
                             const resultStr = JSON.stringify(codeResult.data, null, 2);
-                            feedback = `代码执行成功。\n输出:\n\`\`\`\n${resultStr}\n\`\`\`\n请继续下一步分析。`;
+                            feedback = `代码执行成功，但返回了未知结构。\n输出:\n\`\`\`\n${resultStr}\n\`\`\`\n请继续下一步分析。`;
                         }
                     } else {
                         feedback = `代码执行失败: ${codeResult.error}\n请修复代码后重试。`;
